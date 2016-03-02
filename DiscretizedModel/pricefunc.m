@@ -44,7 +44,12 @@ elseif Vk(statenum,idx) <= Vc(statenum,idx)  % Change price
     [~, idx] = max(val2max); % max value and pPgrid index of max value
     pPout = pPgrid(idx);
     
-
+   % % Adjust so that the price choice may be off the grid, use interpolation
+%     V_interp = @(pPstar) realprofit('C',parms,pPstar,astate,Ystate) ...
+%         + parms.beta*interp1(parms.pPgrid,trans*V,pPstar);
+%     [pPout,~] = fminsearch(V_interp, pP);
+    
+    
 end
 
 
