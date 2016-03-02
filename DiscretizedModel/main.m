@@ -41,8 +41,8 @@ parms.s         = 100;      % simulations for moment computations
 
 %% Create gridspace
 % Number of grids for each variable
-parms.Npp = 101;  %349;
-parms.Na  = 3;
+parms.Npp = 51;  %349;
+parms.Na  = 9;
 parms.Ny  = 3;
 parms.Ndm = 3;
 parms.Npi = 3;
@@ -114,60 +114,68 @@ Yss = median(parms.grid(3,:));
 piss = median(parms.grid(4,:));
 
 pPfun = @(pP,a) pricefunc(parms,pP,a,dmss,Yss,piss,Vk_final,Vc_final,V_final);
-% ^^^ SOMETHING NOT WORKING HERE....
-% FINISH UP TRANSLATING EIGENVECTOR METHOD TO THIS PROBLEM
-Qpp = zeros(parms.Npp*parms.Na,parms.Npp);
-row = 1;
-for a = 1:parms.Na
-    for pP = 1:parms.Npp
-        lower = find(pPfun(pP,a) >= parms.pPgrid);
-        lower = lower(end);
-        upper = find(pPfun(pP,a) < parms.pPgrid);
-        upper = upper(1);
-        
-        if isempty(upper)
-            Qpp(row,upper) = 1;
-        else
-            Qpp(row,lower) = (parms.pPgrid(upper) - pPfun(pP,a))/...
-                (parms.pPgrid(upper) - parms.pPgrid(lower));
-            Qpp(row,upper) = (pPfun(pP,a) - parms.pPgrid(lower))/...
-                (parms.pPgrid(upper) - parms.pPgrid(lower));
-        end
-        row = row + 1;
+% pPfun(parms.pPgrid(1,2),parms.grid(1,3))
+
+stat_density = statdist_eigen( parms, pPfun );
+
+%%
+%{
+% Compute values at each (pP,a) in the steady state
+for i = 1:parms.Npp
+    for j = 1:parms.Na
+        pPss(i,j) = pPfun(parms.pPgrid(i),parms.grid(1,j));        
     end
 end
 
-Qa = kron(parms.trans_a,ones(parms.Npp,1));
-col = 1;
-Q = zeros(parms.Npp*parms.Na,parms.Npp*parms.Na);
-for a = 1:parms.Na
-    for pP = 1:parms.Npp
-        Q(:,col) = Qpp(:,pP).*Qa(:,a);        
-        col = col + 1;
-    end
+tmp = Yss( (reshape(pPss,1,parms.Npp*parms.Na)).^(1-parms.theta)*stat_density')^(1/(1-parms.theta));
+
+
+a_hat(a,y)
+% Compute assets
+% stat_density = W(:,index)'/sum(W(:,index));
+A(rt) = 0;
+A(rt) = reshape(a_hat,1,M*N)*stat_density';
+
+% Compute capital
+K(rt) = Lss*( (1/alpha)*(r(rt) + delta) )^(1/(alpha - 1));
+
+% Compare aggregate assets to capital stock at r(rt)
+AKdiff(rt+1) = A(rt) - K(rt);
+
+% Update interest rate
+weight = 0.99;  
+weightextreme = 0.95;
+
+if (alpha*A(rt)^(alpha-1)*Lss^(1-alpha) - delta) > 1/beta - 1
+    r(rt+1) = weightextreme*r(rt) + (1-weightextreme)*(1/beta - 1);
+    bound = 1;
+else
+    r(rt+1) = weight*r(rt) + ...
+        (1-weight)*(alpha*A(rt)^(alpha-1)*Lss^(1-alpha) - delta);
+    bound = 0;
 end
-    
-% Pertub the Q matrix so eigenvalues are unique
-eta = min(nonzeros(Q))/(2*parms.Npp);
-index = find(Q == 0);
-Q(index) = eta;
 
-for i = 1:size(Q,1)
-    Q(i,:) = Q(i,:)/(sum(Q(i,:)));
+% Update wage
+w(rt+1) = (1-alpha)*(1/alpha*(r(rt+1) + delta))^(alpha/(alpha-1));
+
+disp('%----------------------------------%')
+disp('')
+disp(['The current interest rate is: ' num2str(r(rt))])
+disp(['The assets are: ' num2str(abs(A(rt)))])
+disp(['The capital is: ' num2str(abs(K(rt)))])
+if bound == 1
+    disp(['UPPER BOUND VIOLATED AT NEW GUESS'])
 end
-
-% Find eigenvector ==> stationary distribution
-[V,D,W] = eig(Q);
-V = real(V);
-D = real(D);
-W = real(W);
-index = find(diag(D) > 0.999999);
+disp(['The new interest rate is: ' num2str(r(rt+1))])
+disp('')
+disp('%----------------------------------%')
 
 
+rt = rt+1;
 
-
-
-
+% end
+% toc
+%}
 
 
 %% Krussel Smith Step...
