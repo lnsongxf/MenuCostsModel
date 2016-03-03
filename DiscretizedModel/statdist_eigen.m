@@ -1,4 +1,4 @@
-function [ stat_density ] = statdist_eigen( parms, pPfun )
+function [ stat_density, stat_dist_pPgrid ] = statdist_eigen( parms, pPfun )
 %STATDIST_EIGEN Compute the stationary distribution of prices using the
 %eigenvector method
 %------------------------------------------------------

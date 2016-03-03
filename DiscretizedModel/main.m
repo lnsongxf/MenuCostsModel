@@ -42,10 +42,10 @@ parms.s         = 100;      % simulations for moment computations
 %% Create gridspace
 % Number of grids for each variable
 parms.Npp = 51;  %349;
-parms.Na  = 9;
-parms.Ny  = 3;
-parms.Ndm = 3;
-parms.Npi = 3;
+parms.Na  = 5;
+parms.Ny  = 5;
+parms.Ndm = 5;
+parms.Npi = 5;
 
 % Real price grid
 parms.pPmin = 0.75;
@@ -56,12 +56,12 @@ parms.pPgrid = linspace(parms.pPmin,parms.pPmax,parms.Npp);
 % NOTE: construct a VAR, then used VAR-Tauchen to construct grids. Note
 % that for many parameterizations inflation is trending down...
 b0 = 0.001;
-b1 = 0.5;
-b2 = 0.1;
+b1 = 0.3;
+b2 = 0.25;
 
 % %Productivity grid
-[parms.trans_a, agrid] = tauchen(parms.Na,parms.rhoa,parms.sigmazeta,0);
-parms.agrid = exp(agrid);   % Take [ln(a_t)] back to non-logged vals 
+[parms.trans_a, lnagrid] = tauchen(parms.Na,parms.rhoa,parms.sigmazeta,0);
+parms.agrid = exp(lnagrid);   % Take [ln(a_t)] back to non-logged vals 
 
 Nvar = [parms.Ndm;...
     parms.Ny; ...
@@ -114,9 +114,129 @@ Yss = median(parms.grid(3,:));
 piss = median(parms.grid(4,:));
 
 pPfun = @(pP,a) pricefunc(parms,pP,a,dmss,Yss,piss,Vk_final,Vc_final,V_final);
-% pPfun(parms.pPgrid(1,2),parms.grid(1,3))
+[stat_density, stat_dist_pPgrid] = statdist_eigen( parms, pPfun );
 
-stat_density = statdist_eigen( parms, pPfun );
+
+%% Krussel Smith Step...
+% TO DO: simulate aggregate states, OLS step, find new coefficients, put
+% into larger loop around the value function iteration step. Create a
+% markov chain simulation stand-alone code.
+
+% % % % First part of the Krussel Smith step
+
+
+% 1. Guess P-1 = 1, M-1 = 1
+% 2. Guess Y~
+% 4. With dM and Y~ --> pi~
+% 5. P~ = P-1*pi~
+
+T = 50;         % simulation periods
+F = 500;        % Number of firms
+damp = 0.5;    % Dampening parameter on updating for Y
+
+dM_sim = nan(T,1);
+dM_sim(1) = dmss;   % initial money growth is steady state money growth
+
+M_sim = nan(T+1,1);
+M_sim(1) = 1;
+M_sim(2) = dM_sim(1)*M_sim(1);
+
+% To simulate dM, need to simulate indexes since dM is part of a VAR
+agg_idx = nan(T+1,1);
+agg_idx(1) = (parms.Ndm*parms.Ny*parms.Npi + 1)/2;
+indexes = 1:1:parms.Ndm*parms.Ny*parms.Npi;
+
+% 3. Simulate (dM, aj) for all t and j
+a_sim = nan(T+1,F);
+a_sim(1,:) = median(parms.agrid);       % In pre-history, all firms at steady state productivity
+for t = 1: T
+    agg_idx(t+1) = randsample(indexes,1,true,parms.trans_agg(agg_idx(t),:));
+    dM_sim(t+1) = parms.agggrid(1,agg_idx(t+1));
+    for f = 1:F
+        a_idx = find(a_sim(t,f) == parms.agrid);
+        a_sim(t+1,f) = randsample(parms.agrid,1,true,parms.trans_a(a_idx,:));
+        %     pPout = newprice(parms,pP,statenum,Vk_final,Vc_final,V_final);
+    end        
+end
+
+Ytilde_sim = nan(T+1,1);
+Ytilde_sim(1) = Yss;        % Y in steady state in 'pre-history' period
+Ytilde_sim(2) = Yss;          % Y guess for first period of history
+
+Y_sim = nan(T+1,1);
+Y_sim(1) = Yss;        % Y in steady state in 'pre-history' period
+
+Ptilde_sim = nan(T+1,1);
+Ptilde_sim(1) = 1;
+pitilde_sim = nan(T,1);
+P_sim = nan(T+1,1);
+P_sim(1) = 1;              % P in the 'pre-history' period
+
+pP_sim = nan(T,F);
+pPdist = nan(T+1,F);
+pPdist(1,:) = randsample(stat_dist_pPgrid,F,true,stat_density);
+pdist = nan(T+1,F);
+
+%% UPDATING FROM HERE
+Y_sim(2) = Ytilde_sim(2) + 0.5;
+while Y_sim(2) - Ytilde_sim(2) > 0.1
+
+
+% Implied inflation rate, for some reason not on grids!
+pitilde_sim(1) = dM_sim(1)*Ytilde_sim(2)/Ytilde_sim(1);     
+% Put back onto grid... NOTE: THEN NOT EXACTLY IMPLIED BY DM, Y
+tmp = abs( parms.grid(4,:) - pitilde_sim(1) );   % how far from grid?
+[~, idx] = min(tmp);     % index of closest values   
+pitilde_sim(1) = parms.grid(4,idx);       % Put inflation on the grid
+
+Ptilde_sim(2) = Ptilde_sim(1)*pitilde_sim(1);               % Implied initial price level
+
+
+% 6. Use pricing function to get the distribution for prices via pj =
+% (pj/P)*P~  (Later on, use non-stochastic simulation to get the
+% distribution on each loop exactly - much faster)
+
+% pPdist = real price distribution, pdist = nominal price distribution
+
+pdist(1,:) = pPdist(1,:)*P_sim(1);      % multiply by actual price level, known in "pre-history"
+
+for f = 1:F
+    pPdist(2,f) = pricefunc(parms,pPdist(1,f),a_sim(2,f),dM_sim(1),Ytilde_sim(2),pitilde_sim(1),Vk_final,Vc_final,V_final); 
+end
+pdist(2,:) = pPdist(2,:)*Ptilde_sim(2); % multiply by implied price level (given by implied inflation rate and pre-history price)
+
+% 7. Get the actual price level: P = [ int_0^1 ((pj/P)P~)^(1-theta)
+% dj]^(1/(1-theta))
+
+P_sim(2) = (sum(pdist(2,:).^(1-parms.theta)))^(1/(1-parms.theta));  % Quite far guessed true P...
+
+
+% 8. Note that Y = C = M/P. Check if Y~ = Y . If not, update Y~ using
+% dampening.
+
+Y_sim(2) = M_sim(2)/P_sim(2);
+
+disp(['Diff in outputs is ' num2str(Y_sim(2)-Ytilde_sim(2))])
+disp(['At computed price level ' num2str( P_sim(2) )])
+
+
+% If Y is too low, increase Y and increase P
+if Y_sim(2) - Ytilde_sim(2) > 0.1
+   Ytilde_sim(2) =  damp*Ytilde_sim(2) + (1-damp)*Y_sim(2); 
+   Ptilde_sim(1) = 1.1*Ptilde_sim(1);
+   P_sim(1) = 1.1*P_sim(1);
+   
+   tmp = abs( parms.grid(3,:) - Ytilde_sim(2) );   % how far from grid?
+   [~, idx] = min(tmp);     % index of closest values
+   Ytilde_sim(2) = parms.grid(3,idx);       % Put inflation on the grid
+end
+
+disp(['New initial price level is ' num2str( P_sim(1) )])
+
+   
+end
+
+
 
 %%
 %{
@@ -176,35 +296,6 @@ rt = rt+1;
 % end
 % toc
 %}
-
-
-%% Krussel Smith Step...
-% TO DO: simulate aggregate states, OLS step, find new coefficients, put
-% into larger loop around the value function iteration step. Create a
-% markov chain simulation stand-alone code.
-
-% simulate 5000 firms for 96 periods
-T = 50;
-F = 500;
-
-sim_a = nan(T,F);
-sim_a(1,:) = median(parms.agrid);
-pPsim = nan(T,F);
-sim_agg = nan(3,T);
-sim_agg(:,1) = median(parms.grid(2:end,:),2);
-
-for t = 1: T
-    agg_idx = find(sim_agg(:,t) == parms.agggrid,);
-    sim_a(t+1,f) = randsample(parms.agrid,1,true,parms.trans_a(agg_idx,:));
-%     pPout = newprice(parms,pP,statenum,Vk_final,Vc_final,V_final);
-
-    for f = 1:F
-        a_idx = find(sim_a(t,f) == parms.agrid);
-        sim_a(t+1,f) = randsample(parms.agrid,1,true,parms.trans_a(a_idx,:));
-        
-    end
-            
-end
 
 
 

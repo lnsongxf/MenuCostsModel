@@ -26,7 +26,7 @@ function [ pPout ] = pricefunc(parms,pP,astate,dmstate,Ystate,pistate,Vk,Vc,V)
 
 % Find statenumber in grid
 statenum = find(ismember(parms.grid(1,:),astate) & ismember(parms.grid(2,:),dmstate) ...
-    & ismember(parms.grid(3,:),Ystate) & ismember(parms.grid(4,:),pistate));
+    & ismember(parms.grid(3,:),Ystate) & ismember(parms.grid(4,:),pistate) );
 
 trans = parms.trans(statenum,:);
 pPgrid = parms.pPgrid;
