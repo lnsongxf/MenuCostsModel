@@ -10,7 +10,7 @@ Date:           2/26/2016
 clear all;
 clc;
 dbstop if error;
-cd '/Users/victoriagregory/Dropbox/HeterogeneousFirms/Menu Costs/Code'
+cd '/Users/victoriagregory/Dropbox/MenuCostsModel/CollocationModel/VictoriaCode'
 
 %% Settings
 
@@ -27,8 +27,8 @@ options.itermaxL    = 5000;     % Maximum iterations to find stationary dist L
 options.tolL        = 1e-11;    % Tolerance on L
 
 % Set-up for state space
-glob.n          = [50,3];        % Number of nodes in each dimension
-glob.nf         = [300,100];    % Number of points for p and a in histogram L
+glob.n          = [30,5];        % Number of nodes in each dimension
+glob.nf         = [300,5];    % Number of points for p and a in histogram L
 glob.curv       = 1;            % Grid curvature for p/P on (0,1] (1 is no curvature)
 glob.spliorder  = [3,1];        % Order of splines (always use linear if shocks are discrete (not AR1))
 glob.pmin       = 0.01;         % Lower bound on p
@@ -75,16 +75,16 @@ switch options.solvepL
 end
 
 %plot(glob.sf(1:50,1)./(eq.Pa),eq.v.vf(1:50))
-%out=funbas(glob.fspace,glob.sf)*eq.c;
-%plot(glob.sf(350:400,1)./(eq.Pa),eq.v.vf(350:400),glob.sf(350:400,1)./(eq.Pa),out(350:400))
-%legend('RHS','LHS')
+% out=funbas(glob.fspace,glob.sf)*eq.c;
+% plot(glob.sf(350:400,1)./(eq.Pa),eq.v.vf(350:400),glob.sf(350:400,1)./(eq.Pa),out(350:400))
+% legend('RHS','LHS')
 
 %% Solve equilibrium
 switch options.solveeq
     case 'Y'
         options.tolY        = 0.0001;           % Tolerance on output
         options.Ylb         = 0.1;              % Output lower bound
-        options.Yub         = 10;               % Output upper boud
+        options.Yub         = 5;               % Output upper boud
         options.itermaxY    = 30;               % Max iterations of bisection
         options.eqplot      = 'Y'; 
         options.eqprint     = 'Y'; 
