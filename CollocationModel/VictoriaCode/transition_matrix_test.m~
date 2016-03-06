@@ -23,9 +23,9 @@ b1     = 0.3;
 b2     = 0.25;
 
 % Sizes of grids
-Np     = 20;
+Np    = 20;
 Na     = 3;
-Nm     = 3;
+Nm    = 3;
 Ny     = 3;
 
 % Folding a, y, Dm into a single var to get entire state space in one go
@@ -56,18 +56,34 @@ pigrid      = yypmp(:,3) - log(yypmp(:,2)) + log(yypmp(:,1));
 yypmppp     = [yypmp pigrid];
 Npi         = Ny*Ny*Nm;
 
+% mpYppp = gridmake(unique(mgrid),unique(ygrid),pigrid);
+% primegrid = gridmake(unique(agrid),unique(mgrid),unique(ygrid),pigrid);
+% %trans_Y_pp  = 
+% %trans_Y_mpYpPp = ones(Ny,Ny*Nm*length(pigrid));
+% %trans_Y_mpYpPp = kron([1; 0; 0; 0; 0],trans_Y_mpYpPp);
+% %trans_Y_mpYpPp = [trans_Y_mpYpPp; zeros(Nm-1,Ny*Nm*length(pigrid))];
+% %trans_Ym_mpYpPp = kron(ones(Nm,1),trans_Y_mpYpPp);
+% %trans_aYm_mpYpPp = kron(eye(Na),trans_Y_mpYpPp);
+% a = kron(eye(Nm*Ny),ones(1,length(pigrid)));
+% b = kron(eye(Na),a);    % I think this is the matrix I need? DOUBLE CHECK!!
+% %myyp2 = gridmake(unique(agrid),unique(agrid),unique(mgrid),unique(mgrid),unique(ygrid),unique(ygrid));
+% %pigrid      = myyp2(:,4) - log(myyp2(:,6)) + log(myyp2(:,5));
+
 % Form the matrix that determines whether you can transit from:
 % Y --> Y', m', pi'
-Pryypmppp   = sparse(Ny,Ny*Nm*Npi);
+Pryypmppp   = zeros(Ny,Ny*Nm*Npi);
 p = 1;
 for m = 1:Nm*Ny
     for y = 1:Ny
-        temp = sparse(Ny,Ny*Nm);
+        temp = zeros(Ny,Ny*Nm);
         temp(y,m) = 1;
         Pryypmppp(:,p:p+Ny*Nm-1) = temp;
         p=p+Ny*Nm;
     end
 end
+
+% Normalize to reflect that each transition is equally probable
+%Pryypmppp = diag(1./sum(Pryypmppp,2))*Pryypmppp;
 
 % First Kroenecker product: repeat vertically across m dimension
 Prymypmppp     = kron(ones(Nm,1),Pryypmppp);
@@ -77,11 +93,11 @@ Praymypmppp    = kron(ones(Na),Prymypmppp);
 Prpaympypmppp  = kron(ones(Np),Praymypmppp);
 
 % Normalize to reflect that each transition is equally probable
-Prpaympypmppp = sparse(diag(1./sum(Prpaympypmppp,2))*Prpaympypmppp);
+Prpaympypmppp = diag(1./sum(Prpaympypmppp,2))*Prpaympypmppp;
 
 % This is the matrix for transitioning between the N states
-N_trans = kron(A,speye(Np));
+N_trans = kron(A,eye(Np));
 
-% I *think* this is the matrix that should be used to form expectations
-exp_matrix = sparse(N_trans*Prpaympypmppp);
+% I *think* this is the matrix that should be used t
+exp_matrix = N_trans*Prpaympypmppp;
 
