@@ -8,12 +8,12 @@
 %
 %---------------------------------------------------------
 % Add CompEcon package
-p = genpath('E:\Dropbox\Economics\Matlab_codes\CompEcon');
-% p = genpath('C:\Users\James\Dropbox\Economics\Matlab_codes\CompEcon');
+% p = genpath('E:\Dropbox\Economics\Matlab_codes\CompEcon');
+p = genpath('C:\Users\James\Dropbox\Economics\Matlab_codes\CompEcon');
 addpath(p);
 
-cd('E:\Dropbox\Economics\2015_2016_material\AdvMacro_Midrigan\TermPaper')
-% cd('C:\Users\James\Dropbox\economics\2015_2016_material\AdvMacro_Midrigan\TermPaper')
+% cd('E:\Dropbox\Economics\2015_2016_material\AdvMacro_Midrigan\TermPaper\MenuCostsModel\DiscretizedModel')
+cd('C:\Users\James\Dropbox\economics\2015_2016_material\AdvMacro_Midrigan\TermPaper\MenuCostsModel\DiscretizedModel')
 close all
 clear
 clc
@@ -41,12 +41,11 @@ parms.s         = 100;      % simulations for moment computations
 
 %% Create gridspace
 % Number of grids for each variable
-parms.Npp = 101;  %349;
-parms.Na  = 3;
-parms.Ny  = 3;
-parms.Ndm = 3;
-parms.Npi = 3;
-
+parms.Npp = 51;  %349;
+parms.Na  = 5;
+parms.Ny  = 5;
+parms.Ndm = 5;
+parms.Npi = 5;
 
 % Real price grid
 parms.pPmin = 0.75;
@@ -57,12 +56,12 @@ parms.pPgrid = linspace(parms.pPmin,parms.pPmax,parms.Npp);
 % NOTE: construct a VAR, then used VAR-Tauchen to construct grids. Note
 % that for many parameterizations inflation is trending down...
 b0 = 0.001;
-b1 = 0.5;
-b2 = 0.1;
+b1 = 0.3;
+b2 = 0.25;
 
 % %Productivity grid
-[parms.trans_a, agrid] = tauchen(parms.Na,parms.rhoa,parms.sigmazeta,0);
-parms.agrid = exp(agrid);   % Take [ln(a_t)] back to non-logged vals 
+[parms.trans_a, lnagrid] = tauchen(parms.Na,parms.rhoa,parms.sigmazeta,0);
+parms.agrid = exp(lnagrid);   % Take [ln(a_t)] back to non-logged vals 
 
 Nvar = [parms.Ndm;...
     parms.Ny; ...
@@ -87,39 +86,6 @@ s=size(Trans_admypi, 2);
 Trans_admypi = spdiags(sum(Trans_admypi,2), 0, s, s)\Trans_admypi;
 parms.trans = Trans_admypi;   % Make sure transiton probs are Prob(t->t+1)
 
-
-% Folding a, Dm, y, pi into a single var to get entire state space in one go
-% Nvar = [parms.Na; ...
-%     parms.Ndm; ...
-%     parms.Ny; ...
-%     parms.Npi];
-% muvar = [0; ...
-%     parms.mu*(1-parms.rhom); ...
-%     b0 + b2*parms.mu*(1-parms.rhom); ...
-%     -b0 + (1-b2)*parms.mu*(1-parms.rhom)];
-% Avar = [parms.rhoa, 0, 0, 0; ...
-%     0, parms.rhom, 0, 0; ...
-%     0, b2*parms.rhom, b1, 0; ...
-%     0, (1-b2)*parms.rhom, (1-b1), 0];
-% Svar = [parms.sigmazeta; ...
-%     parms.sigmaeps; ...
-%     b2*parms.sigmaeps; ...
-%     (1-b2)*parms.sigmaeps];
-
-% [grid,Transition_admypi,~]=tauchenvar(Nvar,muvar,Avar,Svar);
-% grid(1,:) = exp(grid(1,:));   % take ln(a_t) back to a_t
-% grid(3,:) = exp(grid(3,:));   % take ln(Y_t) back to Y_t
-% grid(4,:) = exp(grid(4,:));   % take ln(P_t/P_t-1) back to P_t/P_t-1
-% parms.grid = grid;
-% 
-% agrid = grid(1,1:parms.Na);
-% dmgrid = grid(2,1:parms.Na:parms.Na*parms.Ndm);
-% Ygrid = grid(3,1:parms.Na*parms.Ndm:parms.Na*parms.Ndm*parms.Ny);
-% pigrid = grid(4,1:parms.Na*parms.Ndm*parms.Ny:end);   
-% 
-% parms.trans = Transition_admypi';   % Make sure transiton probs are Prob(t->t+1)
-
-
 %% Value function iteration
 %--------------------------
 % Need to speed up an insane amount if gonna get up to 349 grid points for
@@ -127,99 +93,28 @@ parms.trans = Trans_admypi;   % Make sure transiton probs are Prob(t->t+1)
 %
 % Get rid of loops, vectorize as much as possible...
 %
-% GET RID OF LOOPS
 %--------------------------
 tic 
-% Initialize value function
-T = 500;
-Vk(:,:,T) = nan(parms.Na*parms.Ndm*parms.Ny*parms.Npi, parms.Npp);
-Vc(:,:,T) = nan(parms.Na*parms.Ndm*parms.Ny*parms.Npi, parms.Npp);
-V(:,:,T+1) = nan(parms.Na*parms.Ndm*parms.Ny*parms.Npi, parms.Npp);
+[V_final, Vc_final, Vk_final] = val_iter(parms, 0.1);
+toc
 
-
-% Load previous solutionss
-V(:,:,1) = eye(parms.Na*parms.Ny*parms.Ndm*parms.Npi, parms.Npp);
-% tmp = load(['FinalV_Na' num2str(parms.Na) ...
-%     '_Ndm' num2str(parms.Ndm) ...
-%     '_Ny' num2str(parms.Ny) ... 
-%     '_Npi' num2str(parms.Npi) ...
-%     '_Npp' num2str(parms.Npp)]);
-% V(:,:,1) = tmp.V_final;
-
-% pre-allocate real profit functions for speed
-
-for j = 1:parms.Npp
-    % realprofit(flag,parms,pP,a,Y)
-    profK(:,j)  = realprofit('K',parms,parms.pPgrid(j),parms.grid(1,:),parms.grid(3,:));
-end
-profC = realprofit('C',parms,parms.pPgrid,parms.grid(1,:),parms.grid(3,:));
-
-
-% % Pre-find matrix indicies when changing
-% for j = 1:parms.Npp
-%     tmp = abs( repmat(parms.pPgrid,parms.Na*parms.Ndm*parms.Ny*parms.Npi,1) - ...
-%         repmat(parms.pPgrid(1,j)./parms.grid(4, :)',1,parms.Npp) ); % how far from grid?
-%     [~, idx_pP] = min(tmp,[],2); % index of closest values
-% end
-
-
-h = waitbar(0,'Value function iteration in progress...');
-for t = 1:T
-    waitbar(t / T)
-    
-    % Precompute expectation for speed
-%     E_V = nan(parms.Na*parms.Ndm*parms.Ny*parms.Npi,parms.Npp);
-%     for i = 1:parms.Na*parms.Ndm*parms.Ny*parms.Npi
-%         E_V(i,j) = V(i,idx_pP(i),t);  % Move to new pP grid point in V0
-%     end
-    
-    Vc(:,:,t)   = repmat(valfun('C', parms, parms.pPgrid, V(:,:,t),profC), 1, parms.Npp);
-    
-    for j = 1:parms.Npp 
-        Vk(:,j,t)   = valfun('K', parms, parms.pPgrid(j), V(:,:,t), profK(:,j));        
-    end
-    
-    V(:,:,t+1) = bsxfun(@max,Vk(:,:,t),Vc(:,:,t));  % bsxfun = binary operations on matrices
-
-    disp(['Norm = ' num2str(norm(V(:,:,t+1) - V(:,:,t))) ]) 
-end
-close(h) 
-
-V_final = V(:,:,end);
-Vc_final = Vc(:,:,end);
-Vk_final = Vk(:,:,end);
-
-toc 
-
-
-% Save the final value fuction 
-save(['FinalV_Na' num2str(parms.Na) ...
-    '_Ny' num2str(parms.Ny) ... 
-    '_Ndm' num2str(parms.Ndm) ...
-    '_Npi' num2str(parms.Npi) ...
-    '_Npp' num2str(parms.Npp) '.mat'], 'V_final');
-
-% NOTE: MUCH faster now. 
-% 30,000 grid points ~ 1 minute
-% 60,000 grid points ~ 2 minutes.
-% 160,000 grid points ~ 9 minutes
-
-% Can make even faster by eliminating the 'j' loop.
-
-% Precompute expectations for additional speed? Check accuracy, seems to be
-% something wrong when we do that...
-
-% Look for other speed improvements...
-%
-%% Plot value function
+% Plot value function
 idx = ((parms.Na*parms.Ny*parms.Ndm*parms.Npi) - 1)/2 + 1;
 
 figure
-plot( parms.pPgrid,squeeze(V(idx,:,end)) )
+plot( parms.pPgrid,squeeze(V_final(idx,:)) )
 xlabel('Real price')
 ylabel('Value')
 title('Value function at mean value of state variables')
 
+
+%% Compute stationary distribution
+dmss = median(parms.grid(2,:));
+Yss = median(parms.grid(3,:));
+piss = median(parms.grid(4,:));
+
+pPfun = @(pP,a) pricefunc(parms,pP,a,dmss,Yss,piss,Vk_final,Vc_final,V_final);
+[stat_density, stat_dist_pPgrid] = statdist_eigen( parms, pPfun );
 
 
 %% Krussel Smith Step...
@@ -227,28 +122,180 @@ title('Value function at mean value of state variables')
 % into larger loop around the value function iteration step. Create a
 % markov chain simulation stand-alone code.
 
-% simulate 5000 firms for 96 periods
-T = 50;
-F = 500;
+% % % % First part of the Krussel Smith step
 
-sim_a = nan(T,F);
-sim_a(1,:) = median(parms.agrid);
-pPsim = nan(T,F);
-sim_agg = nan(3,T);
-sim_agg(:,1) = median(parms.grid(2:end,:),2);
 
+% 1. Guess P-1 = 1, M-1 = 1
+% 2. Guess Y~
+% 4. With dM and Y~ --> pi~
+% 5. P~ = P-1*pi~
+
+T = 50;         % simulation periods
+F = 500;        % Number of firms
+damp = 0.5;    % Dampening parameter on updating for Y
+
+dM_sim = nan(T,1);
+dM_sim(1) = dmss;   % initial money growth is steady state money growth
+
+M_sim = nan(T+1,1);
+M_sim(1) = 1;
+M_sim(2) = dM_sim(1)*M_sim(1);
+
+% To simulate dM, need to simulate indexes since dM is part of a VAR
+agg_idx = nan(T+1,1);
+agg_idx(1) = (parms.Ndm*parms.Ny*parms.Npi + 1)/2;
+indexes = 1:1:parms.Ndm*parms.Ny*parms.Npi;
+
+% 3. Simulate (dM, aj) for all t and j
+a_sim = nan(T+1,F);
+a_sim(1,:) = median(parms.agrid);       % In pre-history, all firms at steady state productivity
 for t = 1: T
-    agg_idx = find(sim_agg(:,t) == parms.agggrid,);
-    sim_a(t+1,f) = randsample(parms.agrid,1,true,parms.trans_a(agg_idx,:));
-%     pPout = newprice(parms,pP,statenum,Vk_final,Vc_final,V_final);
-
+    agg_idx(t+1) = randsample(indexes,1,true,parms.trans_agg(agg_idx(t),:));
+    dM_sim(t+1) = parms.agggrid(1,agg_idx(t+1));
     for f = 1:F
-        a_idx = find(sim_a(t,f) == parms.agrid);
-        sim_a(t+1,f) = randsample(parms.agrid,1,true,parms.trans_a(a_idx,:));
-        
-    end
-            
+        a_idx = find(a_sim(t,f) == parms.agrid);
+        a_sim(t+1,f) = randsample(parms.agrid,1,true,parms.trans_a(a_idx,:));
+        %     pPout = newprice(parms,pP,statenum,Vk_final,Vc_final,V_final);
+    end        
 end
+
+Ytilde_sim = nan(T+1,1);
+Ytilde_sim(1) = Yss;        % Y in steady state in 'pre-history' period
+Ytilde_sim(2) = Yss;          % Y guess for first period of history
+
+Y_sim = nan(T+1,1);
+Y_sim(1) = Yss;        % Y in steady state in 'pre-history' period
+
+Ptilde_sim = nan(T+1,1);
+Ptilde_sim(1) = 1;
+pitilde_sim = nan(T,1);
+P_sim = nan(T+1,1);
+P_sim(1) = 1;              % P in the 'pre-history' period
+
+pP_sim = nan(T,F);
+pPdist = nan(T+1,F);
+pPdist(1,:) = randsample(stat_dist_pPgrid,F,true,stat_density);
+pdist = nan(T+1,F);
+
+%% UPDATING FROM HERE
+Y_sim(2) = Ytilde_sim(2) + 0.5;
+while Y_sim(2) - Ytilde_sim(2) > 0.1
+
+
+% Implied inflation rate, for some reason not on grids!
+pitilde_sim(1) = dM_sim(1)*Ytilde_sim(2)/Ytilde_sim(1);     
+% Put back onto grid... NOTE: THEN NOT EXACTLY IMPLIED BY DM, Y
+tmp = abs( parms.grid(4,:) - pitilde_sim(1) );   % how far from grid?
+[~, idx] = min(tmp);     % index of closest values   
+pitilde_sim(1) = parms.grid(4,idx);       % Put inflation on the grid
+
+Ptilde_sim(2) = Ptilde_sim(1)*pitilde_sim(1);               % Implied initial price level
+
+
+% 6. Use pricing function to get the distribution for prices via pj =
+% (pj/P)*P~  (Later on, use non-stochastic simulation to get the
+% distribution on each loop exactly - much faster)
+
+% pPdist = real price distribution, pdist = nominal price distribution
+
+pdist(1,:) = pPdist(1,:)*P_sim(1);      % multiply by actual price level, known in "pre-history"
+
+for f = 1:F
+    pPdist(2,f) = pricefunc(parms,pPdist(1,f),a_sim(2,f),dM_sim(1),Ytilde_sim(2),pitilde_sim(1),Vk_final,Vc_final,V_final); 
+end
+pdist(2,:) = pPdist(2,:)*Ptilde_sim(2); % multiply by implied price level (given by implied inflation rate and pre-history price)
+
+% 7. Get the actual price level: P = [ int_0^1 ((pj/P)P~)^(1-theta)
+% dj]^(1/(1-theta))
+
+P_sim(2) = (sum(pdist(2,:).^(1-parms.theta)))^(1/(1-parms.theta));  % Quite far guessed true P...
+
+
+% 8. Note that Y = C = M/P. Check if Y~ = Y . If not, update Y~ using
+% dampening.
+
+Y_sim(2) = M_sim(2)/P_sim(2);
+
+disp(['Diff in outputs is ' num2str(Y_sim(2)-Ytilde_sim(2))])
+disp(['At computed price level ' num2str( P_sim(2) )])
+
+
+% If Y is too low, increase Y and increase P
+if Y_sim(2) - Ytilde_sim(2) > 0.1
+   Ytilde_sim(2) =  damp*Ytilde_sim(2) + (1-damp)*Y_sim(2); 
+   Ptilde_sim(1) = 1.1*Ptilde_sim(1);
+   P_sim(1) = 1.1*P_sim(1);
+   
+   tmp = abs( parms.grid(3,:) - Ytilde_sim(2) );   % how far from grid?
+   [~, idx] = min(tmp);     % index of closest values
+   Ytilde_sim(2) = parms.grid(3,idx);       % Put inflation on the grid
+end
+
+disp(['New initial price level is ' num2str( P_sim(1) )])
+
+   
+end
+
+
+
+%%
+%{
+% Compute values at each (pP,a) in the steady state
+for i = 1:parms.Npp
+    for j = 1:parms.Na
+        pPss(i,j) = pPfun(parms.pPgrid(i),parms.grid(1,j));        
+    end
+end
+
+tmp = Yss( (reshape(pPss,1,parms.Npp*parms.Na)).^(1-parms.theta)*stat_density')^(1/(1-parms.theta));
+
+
+a_hat(a,y)
+% Compute assets
+% stat_density = W(:,index)'/sum(W(:,index));
+A(rt) = 0;
+A(rt) = reshape(a_hat,1,M*N)*stat_density';
+
+% Compute capital
+K(rt) = Lss*( (1/alpha)*(r(rt) + delta) )^(1/(alpha - 1));
+
+% Compare aggregate assets to capital stock at r(rt)
+AKdiff(rt+1) = A(rt) - K(rt);
+
+% Update interest rate
+weight = 0.99;  
+weightextreme = 0.95;
+
+if (alpha*A(rt)^(alpha-1)*Lss^(1-alpha) - delta) > 1/beta - 1
+    r(rt+1) = weightextreme*r(rt) + (1-weightextreme)*(1/beta - 1);
+    bound = 1;
+else
+    r(rt+1) = weight*r(rt) + ...
+        (1-weight)*(alpha*A(rt)^(alpha-1)*Lss^(1-alpha) - delta);
+    bound = 0;
+end
+
+% Update wage
+w(rt+1) = (1-alpha)*(1/alpha*(r(rt+1) + delta))^(alpha/(alpha-1));
+
+disp('%----------------------------------%')
+disp('')
+disp(['The current interest rate is: ' num2str(r(rt))])
+disp(['The assets are: ' num2str(abs(A(rt)))])
+disp(['The capital is: ' num2str(abs(K(rt)))])
+if bound == 1
+    disp(['UPPER BOUND VIOLATED AT NEW GUESS'])
+end
+disp(['The new interest rate is: ' num2str(r(rt+1))])
+disp('')
+disp('%----------------------------------%')
+
+
+rt = rt+1;
+
+% end
+% toc
+%}
 
 
 

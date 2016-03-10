@@ -31,9 +31,13 @@ switch flag
             delta*(Y').^sigma.*( (Y'./a').^(1/alpha)*(pP).^(-theta/alpha) ).^(1+phi);
         
     case 'C' % Change to new price, pay menu cost Phi
-        prof = ((Y')*(pP)).^(1-theta) - ...
-            delta*repmat(Y',1,Npp).^sigma.*( (Y'./a').^(1/alpha)*(pP).^(-theta/alpha) + Phi).^(1+phi);
-
+        if size(pP) == [1,1]
+            prof = ((Y')*(pP)).^(1-theta) - ...
+            delta*(Y').^sigma.*( (Y'./a').^(1/alpha)*(pP).^(-theta/alpha) + Phi).^(1+phi);
+        else
+            prof = ((Y')*(pP)).^(1-theta) - ...
+                delta*repmat(Y',1,Npp).^sigma.*( (Y'./a').^(1/alpha)*(pP).^(-theta/alpha) + Phi).^(1+phi);
+        end
 end
 
 
