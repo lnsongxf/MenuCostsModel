@@ -17,6 +17,7 @@ cd '/Users/victoriagregory/Dropbox/MenuCostsModel/CollocationModel/VictoriaCode'
 % What to solve for
 options.solvepL     = 'Y';      % Solve for p and L given a Y 
 options.solveeq     = 'Y';      % Solve equilibrium
+options.solveKS     = 'N';      % Solve Krussel-Smith
 
 % Tolerances, iterations
 options.Nbell       = 2;        % Number of Bellman (Contraction) iterations
@@ -93,3 +94,21 @@ switch options.solveeq
         options.plotSD      = 'N';              % If Y plot steady state distribution
         eq                  = solve_eq_menucost(param,glob,options); 
 end
+
+%% Set up for Krussel-Smith
+
+% State space
+glob.n          = [20,4,3,3];       % Number of nodes in each dimension
+glob.nf         = [300,8,6,6];      % Number of points for p and a in histogram L
+glob.curv       = 1;                % Grid curvature for p/P on (0,1] (1 is no curvature)
+glob.spliorder  = [3,1,1,1];        % Order of splines (always use linear if shocks are discrete (not AR1))
+
+% Law of motion - initial guesses
+cKS.b0     = 0.015;
+cKS.b1     = 0.3;
+cKS.b2     = 0.25;
+
+%% Setup problem
+fprintf('Setup\n');
+[param,glob]    = setup_ks(cKS,param,glob,options);      
+fprintf('Setup complete\n');

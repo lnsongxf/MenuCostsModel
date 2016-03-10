@@ -25,8 +25,8 @@ b2     = 0.25;
 % Sizes of grids
 Np     = 20;
 Na     = 3;
-Nm     = 3;
 Ny     = 3;
+Nm     = 3;
 
 % Folding a, y, Dm into a single var to get entire state space in one go
 Nvar = [Na; ...
