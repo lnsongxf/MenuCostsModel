@@ -22,11 +22,11 @@ Is = double((vc>vk));
 % policy function
 Pp = Pc.*Is + s(:,1).*(1-Is);
 %Pp = kron(Pc,ones(glob.Npi,1)).*Is + kron(s(:,1),ones(glob.Npi,1)).*(1-Is);
-Is = kron(Is,ones(glob.Npi,1));
+Is = kron(Is,ones(glob.Ny*glob.Ny*glob.Nm,1));
 
 % RHS of expected value equation
 %ve = glob.exp_matrix*(max(glob.Phi_stilde*ck,glob.Phi_stilde*cc));
-ve = glob.exp_matrix*(dprod((1-Is),glob.Phi_stilde)*ck + dprod(Is,glob.Phi_stilde)*cc);
+ve = glob.Emat*(dprod((1-Is),glob.Phi_stilde)*ck + dprod(Is,glob.Phi_stilde)*cc);
 
 % Find a policy function for prices
 
@@ -35,8 +35,8 @@ ve = glob.exp_matrix*(dprod((1-Is),glob.Phi_stilde)*ck + dprod(Is,glob.Phi_stild
 if (nargout==2)
     jac         = [glob.Phi, sparse(glob.Ns,glob.Ns), -param.beta*glob.Phi; ...
                    sparse(glob.Ns,glob.Ns), glob.Phi, -param.beta*Phi_PpA;
-                   -glob.exp_matrix*(dprod((1-Is),glob.Phi_stilde)), ...
-                   -glob.exp_matrix*(dprod(Is,glob.Phi_stilde)), glob.Phi];
+                   -glob.Emat*(dprod((1-Is),glob.Phi_stilde)), ...
+                   -glob.Emat*(dprod(Is,glob.Phi_stilde)), glob.Phi];
                    
 end
 %__________________________________________________________________________

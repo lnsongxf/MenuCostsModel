@@ -3,8 +3,8 @@ function [vc,Phi_PpA] = valfuncchange_KS(ce,s,pp,param,glob,options)
 % Compute flow profits if change
 p           = s(:,1);
 a           = s(:,2);
-y           = s(:,3);
-m           = s(:,4);
+m           = s(:,3);
+y           = s(:,4);
 F           = menufun_menucosts_KS('change',[p,a,y,m],pp,param,glob,options);
 %__________________________________________________________________________
 % Create basis matrices for continuation value
