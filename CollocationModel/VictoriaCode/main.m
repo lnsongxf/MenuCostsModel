@@ -33,7 +33,7 @@ glob.nf         = [300,5];    % Number of points for p and a in histogram L
 glob.curv       = 1;            % Grid curvature for p/P on (0,1] (1 is no curvature)
 glob.spliorder  = [3,1];        % Order of splines (always use linear if shocks are discrete (not AR1))
 glob.pmin       = 0.75;         % Lower bound on p
-glob.pmax       = 1.25;         % Upper bound on p
+glob.pmax       = 1.50;         % Upper bound on p
 
 % NOTE (VG): resulting k grid will be n(1)+spliorder(1)-1
 % Creating the cubic spline space adds 3-1=2 points.
@@ -98,7 +98,7 @@ end
 %% Set up for Krussel-Smith
 
 % State space
-glob.n          = [20,5,3,3];       % Number of nodes in each dimension
+glob.n          = [7,5,3,3];       % Number of nodes in each dimension
 glob.nf         = [300,8,6,6];      % Number of points for p and a in histogram L
 glob.curv       = 1;                % Grid curvature for p/P on (0,1] (1 is no curvature)
 glob.spliorder  = [3,1,1,1];        % Order of splines (always use linear if shocks are discrete (not AR1))
@@ -121,9 +121,9 @@ switch options.solveKS
     [c,v]                  = solve_KS(cKS,param,glob,options);
 end
 
-outc=funbas(glob.fspace,glob.s)*c(end/3+1:2*end/3);
-outk=funbas(glob.fspace,glob.s)*c(1:end/3);
+outc=funbas(glob.fspace,glob.sf)*c(end/3+1:2*end/3);
+outk=funbas(glob.fspace,glob.sf)*c(1:end/3);
 vf = max(v.vk,v.vc);
 vfs = max(outc,outk);
-plot(glob.pgrid,vf(1:glob.n(1)+2),glob.pgrid,vfs(1:glob.n(1)+2));
+plot(glob.pgridf,vfs(1:glob.nf(1)));
 

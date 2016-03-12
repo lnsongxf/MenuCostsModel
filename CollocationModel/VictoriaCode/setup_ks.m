@@ -1,36 +1,27 @@
 function [param,glob] = setup_ks(cKS,param,glob,options)
 
-%% State space for a, Y, m: set up all at once
+%% State space for a, Y, m: James' way
 
+Np = glob.n(1);
 Na = glob.n(2);
 Ny = glob.n(3);
 Nm = glob.n(4);
 
-% COMPARE WITH JAMES
-% Folding a, Y, m into a single VAR
-Nvar = [Na; Ny; Nm];
-muvar = [0; ...
-    cKS.b0 + cKS.b2*param.mu*(1-param.rhom); ...
-    param.mu*(1-param.rhom)];
-Avar = [param.rhoa, 0, 0; ...
-    0, cKS.b1, cKS.b2*param.rhom; ...
-    0, 0, param.rhom];
-Svar = [param.sigmazeta; ...
-    cKS.b2*param.sigmaeps; ...
-    param.sigmaeps];
+% create grid for a:
+[Pa,agrid,Pssa]     = setup_MarkovZ(Na,param.sigmazeta,param.rhoa,1);
 
-% Create grid and transition matrix for a, Y, m
-[aYm_grid,A,Assa] = tauchenvar(Nvar,muvar,Avar,Svar);
-aYm_grid          = exp(aYm_grid');
-A                 = A';
-Assa              = Assa';
+% create grid for Y, m using VAR:
+muvar               = [cKS.b0 + cKS.b2*param.mu*(1-param.rhom); param.mu*(1-param.rhom)];
+Avar                = [param.rhom, 0; cKS.b2*param.rhom, cKS.b1]';
+Svar                = [cKS.b2*param.sigmaeps; param.sigmaeps];
+[tmpgrid,Pym,Pssym] = tauchenvar([Ny; Nm],muvar,Avar,Svar);
 
-% Isolate separate a, Y, m grids
-agrid       = unique(aYm_grid(:,1));
+% tidy up
+Pym = Pym';     
+mgrid = exp(unique(tmpgrid(2,:)))';
+Ygrid = exp(unique(tmpgrid(1,:)))';    
 agrid0      = agrid;
-Ygrid       = unique(aYm_grid(:,2));
 Ygrid0      = Ygrid;
-mgrid       = unique(aYm_grid(:,3));
 mgrid0      = mgrid;
 
 %% State space for endogenous variable p
@@ -92,7 +83,8 @@ Prpaympypmppp  = kron(ones(Np),Praymypmppp);
 Prpaympypmppp = sparse(diag(1./sum(Prpaympypmppp,2))*Prpaympypmppp);
 
 % This is the matrix for transitioning between the N states
-N_trans = kron(A,speye(Np));
+%N_trans = kron(A,speye(Np));
+N_trans = kron(kron(Pym,Pa),speye(Np));
 
 % I *think* this is the matrix that should be used to form expectations
 glob.exp_matrix = sparse(N_trans*Prpaympypmppp);
@@ -112,14 +104,14 @@ Npf             = size(pgridf,1);
 Naf                 = glob.nf(2);
 Nyf                 = glob.nf(3);
 Nmf                 = glob.nf(4);
-Nvarf               = [Naf; Nyf; Nmf];
-[aYm_gridf,~,~]     = tauchenvar(Nvarf,muvar,Avar,Svar);
-aYm_gridf           = exp(aYm_gridf');
-agridf              = unique(aYm_gridf(:,1));
-Ygridf              = unique(aYm_gridf(:,2));
-mgridf              = unique(aYm_gridf(:,3));
-% agridf          = agrid;     
-% Naf             = size(agridf,1);
+
+% create fine grid for a:
+[Paf,agridf,~]     = setup_MarkovZ(Naf,param.sigmazeta,param.rhoa,1);
+
+% create fine grids for Y, m using VAR
+[tmpgrid,~,~] = tauchenvar([Nyf; Nmf],muvar,Avar,Svar);
+mgridf = exp(unique(tmpgrid(2,:)))';
+Ygridf = exp(unique(tmpgrid(1,:)))';  
 
 % whole state space
 sf              = gridmake(pgridf,agridf,Ygridf,mgridf);
@@ -134,7 +126,7 @@ glob.sf         = sf;
 glob.Nsf        = Nsf;
 
 %% Compute QA matrix for approximation of stationary distribution
-glob.QA         = kron(A,ones(Npf,1)); 
+glob.QA         = kron(kron(Pym,Pa),ones(Npf,1)); 
 
 %% Create one time only basis matrices: these might need to be changed
 glob.Phi_A      = splibas(agrid0,0,spliorder(2),s(:,2));                % Used in Bellman / Newton computing expected values
@@ -164,8 +156,8 @@ glob.Ygrid0     = Ygrid0;
 glob.Ygrid      = Ygrid;
 glob.mgrid0     = mgrid0;
 glob.mgrid      = mgrid;
-glob.A          = A;
-glob.Assa       = Assa;
+% glob.A          = A;
+% glob.Assa       = Assa;
 glob.Np         = Np;
 glob.Na         = Na;
 glob.Ny         = Ny;
