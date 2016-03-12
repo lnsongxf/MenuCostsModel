@@ -4,20 +4,20 @@ function [param,glob] = setup_ks(cKS,param,glob,options)
 
 Np = glob.n(1);
 Na = glob.n(2);
-Nm = glob.n(3);
-Ny = glob.n(4);
+Ny = glob.n(3);
+Nm = glob.n(4);
 
 %------------------------------
 
 % James' way: COMPARE TO MY WAY
 [Pa,agrid,Pssa]      = setup_MarkovZ(Na,param.sigmazeta,param.rhoa,1);
-muvar = [param.mu*(1-param.rhom); cKS.b0 + cKS.b2*param.mu*(1-param.rhom)];
-Avar = [param.rhom, 0; cKS.b2*param.rhom, cKS.b1];
-Svar = [param.sigmaeps; cKS.b2*param.sigmaeps];
-[tmpgrid,Pmy,Pssmy]              = tauchenvar([Nm; Ny],muvar,Avar,Svar);
-Pmy = Pmy';     % Make sure 
-mgrid = exp(unique(tmpgrid(1,:)))'; % Take D(ln(M_t)) back to DM_t 
-Ygrid = exp(unique(tmpgrid(2,:)))'; % Take ln(Y_t) back to Y_t    
+muvar = [cKS.b0 + cKS.b2*param.mu*(1-param.rhom); param.mu*(1-param.rhom)];
+Avar = [param.rhom, 0; cKS.b2*param.rhom, cKS.b1]';
+Svar = [cKS.b2*param.sigmaeps; param.sigmaeps];
+[tmpgrid,Pym,Pssym]              = tauchenvar([Ny; Nm],muvar,Avar,Svar);
+Pym = Pym';     % Make sure 
+mgrid = exp(unique(tmpgrid(2,:)))'; % Take D(ln(M_t)) back to DM_t 
+Ygrid = exp(unique(tmpgrid(1,:)))'; % Take ln(Y_t) back to Y_t    
 agrid0      = agrid;
 Ygrid0      = Ygrid;
 mgrid0      = mgrid;
@@ -62,8 +62,8 @@ pgrid0          = pgrid;    % Save for computing basis matrices
 %% Function space and nodes (fspace adds knot points for cubic splines)
 fspace          = fundef({'spli',pgrid,0,glob.spliorder(1)},...
                          {'spli',agrid,0,glob.spliorder(2)},...
-                         {'spli',mgrid,0,glob.spliorder(3)},...
-                         {'spli',Ygrid,0,glob.spliorder(4)});
+                         {'spli',Ygrid,0,glob.spliorder(3)},...
+                         {'spli',mgrid,0,glob.spliorder(4)});
 sgrid           = funnode(fspace);
 s               = gridmake(sgrid);
 Ns              = size(s,1);
@@ -73,53 +73,49 @@ Ns              = size(s,1);
 %agrid           = s(s(:,1)==s(1,1),2);
 pgrid           = unique(s(:,1));
 agrid           = unique(s(:,2));
-mgrid           = unique(s(:,3));
-Ygrid           = unique(s(:,4));
+Ygrid           = unique(s(:,3));
+mgrid           = unique(s(:,4));
 Np              = size(pgrid,1); 
 Na              = size(agrid,1);
-Nm              = size(mgrid,1);
 Ny              = size(Ygrid,1); 
+Nm              = size(mgrid,1);
 
 %% Create inflation grid and expectations matrix (E in my notes)
 
-H          = kron(ones(1,Ns),kron(speye(Ny),ones(Np*Na*Nm,Ny*Nm)));
-glob.H          = bsxfun(@rdivide,H,sum(H,2));    % Normalize rows of H to sum to one
-glob.Emat  = kron(kron(Pmy,Pa),speye(Np))*glob.H;
+% inflation grid
+yypmp       = gridmake(Ygrid, Ygrid, mgrid);
+pigrid      = yypmp(:,3) - log(yypmp(:,2)) + log(yypmp(:,1));
+Npi         = Ny*Ny*Nm;
 
-% % inflation grid
-% yypmp       = gridmake(Ygrid, Ygrid, mgrid);
-% pigrid      = yypmp(:,3) - log(yypmp(:,2)) + log(yypmp(:,1));
-% Npi         = Ny*Ny*Nm;
-% 
-% % Form the matrix that determines whether you can transit from:
-% % Y --> Y', m', pi'
-% Pryypmppp   = sparse(Ny,Ny*Nm*Npi);
-% p = 1;
-% for m = 1:Nm*Ny
-%     for y = 1:Ny
-%         temp = sparse(Ny,Ny*Nm);
-%         temp(y,m) = 1;
-%         Pryypmppp(:,p:p+Ny*Nm-1) = temp;
-%         p=p+Ny*Nm;
-%     end
-% end
-% 
-% % First Kroenecker product: repeat vertically across m dimension
-% Prymypmppp     = kron(Pryypmppp,ones(Nm,1));
-% % Second Kroenecker product: repeat horizontally and vertically for a dim
-% Praymypmppp    = kron(ones(Na),Prymypmppp);
-% % Third Kroenecker product: repeat horizontally and vertically for p dim
-% Prpaympypmppp  = kron(ones(Np),Praymypmppp);
-% 
-% % Normalize to reflect that each transition is equally probable
-% Prpaympypmppp = sparse(diag(1./sum(Prpaympypmppp,2))*Prpaympypmppp);
-% 
-% % This is the matrix for transitioning between the N states
-% %N_trans = kron(A,speye(Np));
-% N_trans = kron(kron(Pym,Pa),speye(Np));
-% 
-% % I *think* this is the matrix that should be used to form expectations
-% glob.exp_matrix = sparse(N_trans*Prpaympypmppp);
+% Form the matrix that determines whether you can transit from:
+% Y --> Y', m', pi'
+Pryypmppp   = sparse(Ny,Ny*Nm*Npi);
+p = 1;
+for m = 1:Nm*Ny
+    for y = 1:Ny
+        temp = sparse(Ny,Ny*Nm);
+        temp(y,m) = 1;
+        Pryypmppp(:,p:p+Ny*Nm-1) = temp;
+        p=p+Ny*Nm;
+    end
+end
+
+% First Kroenecker product: repeat vertically across m dimension
+Prymypmppp     = kron(Pryypmppp,ones(Nm,1));
+% Second Kroenecker product: repeat horizontally and vertically for a dim
+Praymypmppp    = kron(ones(Na),Prymypmppp);
+% Third Kroenecker product: repeat horizontally and vertically for p dim
+Prpaympypmppp  = kron(ones(Np),Praymypmppp);
+
+% Normalize to reflect that each transition is equally probable
+Prpaympypmppp = sparse(diag(1./sum(Prpaympypmppp,2))*Prpaympypmppp);
+
+% This is the matrix for transitioning between the N states
+%N_trans = kron(A,speye(Np));
+N_trans = kron(kron(Pym,Pa),speye(Np));
+
+% I *think* this is the matrix that should be used to form expectations
+glob.exp_matrix = sparse(N_trans*Prpaympypmppp);
 
 % %% Compute expectations matrix
 % 
@@ -163,32 +159,21 @@ glob.Emat  = kron(kron(Pmy,Pa),speye(Np))*glob.H;
 %% Create one time only basis matrices: these might need to be changed
 glob.Phi_A      = splibas(agrid0,0,spliorder(2),s(:,2));                % Used in Bellman / Newton computing expected values
 % glob.Phi_Af     = splibas(agrid0,0,spliorder(2),sf(:,2));               % Used when solving on fine grid
-glob.Phi_Y      = splibas(Ygrid0,0,spliorder(4),s(:,4));                % Used in Bellman / Newton computing expected values
-% glob.Phi_Yf     = splibas(Ygrid0,0,spliorder(4),sf(:,4));               % Used when solving on fine grid
-glob.Phi_m      = splibas(mgrid0,0,spliorder(3),s(:,3));                % Used in Bellman / Newton computing expected values
-% glob.Phi_mf     = splibas(mgrid0,0,spliorder(3),sf(:,3));               % Used when solving on fine grid
+glob.Phi_Y      = splibas(Ygrid0,0,spliorder(2),s(:,3));                % Used in Bellman / Newton computing expected values
+% glob.Phi_Yf     = splibas(Ygrid0,0,spliorder(2),sf(:,3));               % Used when solving on fine grid
+glob.Phi_m      = splibas(mgrid0,0,spliorder(2),s(:,4));                % Used in Bellman / Newton computing expected values
+% glob.Phi_mf     = splibas(mgrid0,0,spliorder(2),sf(:,4));               % Used when solving on fine grid
 Phi_P           = splibas(pgrid0,0,spliorder(1),s(:,1));
 
 % Phi(s):
-glob.Phi        = dprod(glob.Phi_Y,dprod(glob.Phi_m,dprod(glob.Phi_A,Phi_P))); 
-% % Phi(stilde):
-% pterm           = kron(s(:,1),ones(Npi,1));
-% piterm          = kron(ones(Np*Na*Ny*Nm,1),1./pigrid);
-% ppiterm         = pterm.*piterm;
-% sprime          = kron(s(:,2:end),ones(Npi,1));
-% %ppiterm         = kron(kron(kron(s(:,1), Ygrid.^(-1)), Ygrid), mgrid.^(-1));
-% glob.Phi_stilde = funbas(fspace,[ppiterm sprime]);
-
+glob.Phi        = dprod(glob.Phi_m,dprod(glob.Phi_Y,dprod(glob.Phi_A,Phi_P))); 
 % Phi(stilde):
-s_prime = [kron(kron(kron(s(:,1), Ygrid.^(-1)), Ygrid), mgrid.^(-1)), kron(s(:,2:end), ones(Ny*Ny*Nm,1))];
-
-Phi_pPprime  = splibas(pgrid0,0,spliorder(1),s_prime(:,1));       % Basis matrix for price grid
-Phi_Aprime   = splibas(agrid0,0,spliorder(2),s_prime(:,2));        % Used in Bellman / Newton computing expected values
-Phi_mprime   = splibas(mgrid0,0,spliorder(3),s_prime(:,3));        % Used in Bellman / Newton computing expected values
-Phi_Yprime   = splibas(Ygrid0,0,spliorder(4),s_prime(:,4));        % Used in Bellman / Newton computing expected values
-
-% [Np,Na,Nm,Ny] --> Work backwards inside the dprod function
-glob.Phi_stilde        = dprod(Phi_Yprime, dprod(Phi_mprime, dprod(Phi_Aprime, Phi_pPprime)));     
+pterm           = kron(s(:,1),ones(Npi,1));
+piterm          = kron(ones(Np*Na*Ny*Nm,1),1./pigrid);
+ppiterm         = pterm.*piterm;
+sprime          = kron(s(:,2:end),ones(Npi,1));
+%ppiterm         = kron(kron(kron(s(:,1), Ygrid.^(-1)), Ygrid), mgrid.^(-1));
+glob.Phi_stilde = funbas(fspace,[ppiterm sprime]);
 
 %% Declare additional global variables
 glob.pgrid0     = pgrid0;
@@ -208,6 +193,6 @@ glob.Nm         = Nm;
 glob.fspace     = fspace;
 glob.s          = s;
 glob.Ns         = Ns;
-%glob.Npi        = Npi;
+glob.Npi        = Npi;
 
 end
