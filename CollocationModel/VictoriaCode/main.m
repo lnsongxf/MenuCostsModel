@@ -33,7 +33,7 @@ glob.nf         = [300,5];    % Number of points for p and a in histogram L
 glob.curv       = 1;            % Grid curvature for p/P on (0,1] (1 is no curvature)
 glob.spliorder  = [3,1];        % Order of splines (always use linear if shocks are discrete (not AR1))
 glob.pmin       = 0.75;         % Lower bound on p
-glob.pmax       = 1.25;         % Upper bound on p
+glob.pmax       = 1.50;         % Upper bound on p
 
 % NOTE (VG): resulting k grid will be n(1)+spliorder(1)-1
 % Creating the cubic spline space adds 3-1=2 points.
@@ -104,9 +104,9 @@ glob.curv       = 1;                % Grid curvature for p/P on (0,1] (1 is no c
 glob.spliorder  = [3,1,1,1];        % Order of splines (always use linear if shocks are discrete (not AR1))
 
 % Law of motion - initial guesses
-cKS.b0     = 0.015;
-cKS.b1     = 0.3;
-cKS.b2     = 0.25;
+cKS.b0     = 0.001;
+cKS.b1     = 0.5;
+cKS.b2     = 0.1;
 
 %% Setup problem
 fprintf('Setup\n');
