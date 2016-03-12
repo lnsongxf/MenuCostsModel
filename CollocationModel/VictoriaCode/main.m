@@ -15,9 +15,9 @@ cd '/Users/victoriagregory/Dropbox/MenuCostsModel/CollocationModel/VictoriaCode'
 %% Settings
 
 % What to solve for
-options.solvepL     = 'Y';      % Solve for p and L given a Y 
-options.solveeq     = 'Y';      % Solve equilibrium
-options.solveKS     = 'N';      % Solve Krussel-Smith
+options.solvepL     = 'N';      % Solve for p and L given a Y 
+options.solveeq     = 'N';      % Solve equilibrium
+options.solveKS     = 'Y';      % Solve Krussel-Smith
 
 % Tolerances, iterations
 options.Nbell       = 2;        % Number of Bellman (Contraction) iterations
@@ -32,8 +32,8 @@ glob.n          = [30,5];        % Number of nodes in each dimension
 glob.nf         = [300,5];    % Number of points for p and a in histogram L
 glob.curv       = 1;            % Grid curvature for p/P on (0,1] (1 is no curvature)
 glob.spliorder  = [3,1];        % Order of splines (always use linear if shocks are discrete (not AR1))
-glob.pmin       = 0.01;         % Lower bound on p
-glob.pmax       = 4;         % Upper bound on p
+glob.pmin       = 0.75;         % Lower bound on p
+glob.pmax       = 1.25;         % Upper bound on p
 
 % NOTE (VG): resulting k grid will be n(1)+spliorder(1)-1
 % Creating the cubic spline space adds 3-1=2 points.
@@ -98,7 +98,7 @@ end
 %% Set up for Krussel-Smith
 
 % State space
-glob.n          = [20,4,3,3];       % Number of nodes in each dimension
+glob.n          = [20,5,3,3];       % Number of nodes in each dimension
 glob.nf         = [300,8,6,6];      % Number of points for p and a in histogram L
 glob.curv       = 1;                % Grid curvature for p/P on (0,1] (1 is no curvature)
 glob.spliorder  = [3,1,1,1];        % Order of splines (always use linear if shocks are discrete (not AR1))
@@ -112,3 +112,18 @@ cKS.b2     = 0.25;
 fprintf('Setup\n');
 [param,glob]    = setup_ks(cKS,param,glob,options);      
 fprintf('Setup complete\n');
+
+%% For now, just going to solve the problem on the expanded state space
+
+switch options.solveKS
+    case 'Y'
+    options.cresult        = [];   % Holds previous solution for c. Empty in this case.
+    [c,v]                  = solve_KS(cKS,param,glob,options);
+end
+
+outc=funbas(glob.fspace,glob.s)*c(end/3+1:2*end/3);
+outk=funbas(glob.fspace,glob.s)*c(1:end/3);
+vf = max(v.vk,v.vc);
+vfs = max(outc,outk);
+plot(glob.pgrid,vf(1:glob.n(1)+2),glob.pgrid,vfs(1:glob.n(1)+2));
+

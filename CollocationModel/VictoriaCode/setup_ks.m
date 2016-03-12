@@ -6,6 +6,7 @@ Na = glob.n(2);
 Ny = glob.n(3);
 Nm = glob.n(4);
 
+% COMPARE WITH JAMES
 % Folding a, Y, m into a single VAR
 Nvar = [Na; Ny; Nm];
 muvar = [0; ...
@@ -81,7 +82,7 @@ for m = 1:Nm*Ny
 end
 
 % First Kroenecker product: repeat vertically across m dimension
-Prymypmppp     = kron(ones(Nm,1),Pryypmppp);
+Prymypmppp     = kron(Pryypmppp,ones(Nm,1));
 % Second Kroenecker product: repeat horizontally and vertically for a dim
 Praymypmppp    = kron(ones(Na),Prymypmppp);
 % Third Kroenecker product: repeat horizontally and vertically for p dim
@@ -147,10 +148,11 @@ Phi_P           = splibas(pgrid0,0,spliorder(1),s(:,1));
 % Phi(s):
 glob.Phi        = dprod(glob.Phi_m,dprod(glob.Phi_Y,dprod(glob.Phi_A,Phi_P))); 
 % Phi(stilde):
-pterm           = kron(ones(Npi,1),s(:,1));
-piterm          = kron(1./pigrid,ones(Np*Na*Ny*Nm,1));
+pterm           = kron(s(:,1),ones(Npi,1));
+piterm          = kron(ones(Np*Na*Ny*Nm,1),1./pigrid);
 ppiterm         = pterm.*piterm;
-sprime          = kron(ones(Npi,1),s(:,2:end));
+sprime          = kron(s(:,2:end),ones(Npi,1));
+%ppiterm         = kron(kron(kron(s(:,1), Ygrid.^(-1)), Ygrid), mgrid.^(-1));
 glob.Phi_stilde = funbas(fspace,[ppiterm sprime]);
 
 %% Declare additional global variables
@@ -171,5 +173,6 @@ glob.Nm         = Nm;
 glob.fspace     = fspace;
 glob.s          = s;
 glob.Ns         = Ns;
+glob.Npi        = Npi;
 
 end
