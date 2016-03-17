@@ -110,26 +110,45 @@ cKS.b2     = 0.25;
 
 % Options
 options.print       = 'Y';
-options.eqprint     = 'Y';  % for market clearing step in simulation
-options.tolp        = 0.03; % tolerance on aggregate price P
-options.toly        = 0.02; % tolerance on output Y
+options.eqprint     = 'N';  % for market clearing step in simulation
+options.toly        = 0.01; % tolerance on output Y
 options.T           = 75;   % simulation length
-options.S           = 25;   % number of simulations
+options.S           = 5;   % number of simulations
 
 
-%% Setup problem
+%% Solve Krussel-Smith problem
+
+switch options.solveKS
+    case 'Y'
+    
+    for itercKS = 1:5;     
+        % Solve problem, simulate, etc.
+        options.cresult             = [];   % Holds previous solution for c. Empty in this case.
+        [c,v,KS_coeffs,R2,paths]    = solve_KS(cKS,eq,param,glob,options);
+
+        % update Krusell-Smith coefficients guess
+        mean_coeffs            = mean(KS_coeffs,1)
+        d_b0                   = norm(mean_coeffs(1)-cKS.b0)/norm(cKS.b0);  
+        d_b1                   = norm(mean_coeffs(2)-cKS.b1)/norm(cKS.b1); 
+        d_b2                   = norm(mean_coeffs(3)-cKS.b2)/norm(cKS.b2);
+        cKS.b0                 = mean_coeffs(1);
+        cKS.b1                 = mean_coeffs(2);
+        cKS.b2                 = mean_coeffs(3);
+
+        % print and check for convergence
+        fprintf('d_b0 = %1.4f\n',d_b0);
+        fprintf('d_b1 = %1.4f\n',d_b1);
+        fprintf('d_b2 = %1.4f\n',d_b2);
+        if d_b0+d_b1+d_b2<0.01,break,end
+    end
+end
+
+% re-run the setup
 fprintf('Setup\n');
 [param,glob]    = setup_ks(cKS,param,glob,options);      
 fprintf('Setup complete\n');
 
-%% For now, just going to solve the problem on the expanded state space
-
-switch options.solveKS
-    case 'Y'
-    options.cresult        = [];   % Holds previous solution for c. Empty in this case.
-    [c,v]                  = solve_KS(cKS,eq,param,glob,options);
-end
-
+% plot
 outc=funbas(glob.fspace,glob.sf)*c(end/3+1:2*end/3);
 outk=funbas(glob.fspace,glob.sf)*c(1:end/3);
 vf = max(v.vk,v.vc);

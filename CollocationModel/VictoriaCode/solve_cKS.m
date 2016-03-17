@@ -3,8 +3,6 @@ function [c,v] = solve_cKS(cold,cKS,param,glob,options)
     s           = glob.s;
     totaltic    = tic;
     
-    %% might need to run setup file again here when I loop over LOMs
-    
     %% Bellman iteration
     for citer = (1:options.Nbell)
         glob.citer  = citer;
