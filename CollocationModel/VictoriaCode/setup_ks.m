@@ -12,13 +12,13 @@ Nm = glob.n(4);
 
 % create grid for Y, m using VAR:
 muvar               = [cKS.b0 + cKS.b2*param.mu*(1-param.rhom); param.mu*(1-param.rhom)];
-Avar                = [param.rhom, 0; cKS.b2*param.rhom, cKS.b1]';
+Avar                = [cKS.b1, cKS.b2*param.rhom; 0, param.rhom];
 Svar                = [cKS.b2*param.sigmaeps; param.sigmaeps];
 [tmpgrid,Pym,Pssym] = tauchenvar([Ny; Nm],muvar,Avar,Svar);
 
 % tidy up
 Pym = Pym';     
-mgrid = exp(unique(tmpgrid(2,:)))';
+mgrid = unique(tmpgrid(2,:))';
 Ygrid = exp(unique(tmpgrid(1,:)))';    
 agrid0      = agrid;
 Ygrid0      = Ygrid;
@@ -55,7 +55,7 @@ Nm              = size(mgrid,1);
 %% Create inflation grid and expectations matrix (E in my notes)
 
 % inflation grid
-yypmp       = gridmake(Ygrid, Ygrid, mgrid);
+yypmp       = gridmake(Ygrid, Ygrid, exp(mgrid));
 pigrid      = yypmp(:,3) - log(yypmp(:,2)) + log(yypmp(:,1));
 Npi         = Ny*Ny*Nm;
 
@@ -110,7 +110,7 @@ Nmf                 = glob.nf(4);
 
 % create fine grids for Y, m using VAR
 [tmpgrid,~,~] = tauchenvar([Nyf; Nmf],muvar,Avar,Svar);
-mgridf = exp(unique(tmpgrid(2,:)))';
+mgridf = unique(tmpgrid(2,:))';
 Ygridf = exp(unique(tmpgrid(1,:)))';  
 
 % whole state space
@@ -126,15 +126,16 @@ glob.sf         = sf;
 glob.Nsf        = Nsf;
 
 %% Compute QA matrix for approximation of stationary distribution
-glob.QA         = kron(kron(Pym,Pa),ones(Npf,1)); 
+%glob.QA         = kron(kron(Pym,Pa),ones(Npf,1)); 
+glob.QA         = kron(Pa,ones(Npf,1)); 
 
 %% Create one time only basis matrices: these might need to be changed
 glob.Phi_A      = splibas(agrid0,0,spliorder(2),s(:,2));                % Used in Bellman / Newton computing expected values
 glob.Phi_Af     = splibas(agrid0,0,spliorder(2),sf(:,2));               % Used when solving on fine grid
-glob.Phi_Y      = splibas(Ygrid0,0,spliorder(2),s(:,3));                % Used in Bellman / Newton computing expected values
-glob.Phi_Yf     = splibas(Ygrid0,0,spliorder(2),sf(:,3));               % Used when solving on fine grid
-glob.Phi_m      = splibas(mgrid0,0,spliorder(2),s(:,4));                % Used in Bellman / Newton computing expected values
-glob.Phi_mf     = splibas(mgrid0,0,spliorder(2),sf(:,4));               % Used when solving on fine grid
+glob.Phi_Y      = splibas(Ygrid0,0,spliorder(3),s(:,3));                % Used in Bellman / Newton computing expected values
+glob.Phi_Yf     = splibas(Ygrid0,0,spliorder(3),sf(:,3));               % Used when solving on fine grid
+glob.Phi_m      = splibas(mgrid0,0,spliorder(4),s(:,4));                % Used in Bellman / Newton computing expected values
+glob.Phi_mf     = splibas(mgrid0,0,spliorder(4),sf(:,4));               % Used when solving on fine grid
 Phi_P           = splibas(pgrid0,0,spliorder(1),s(:,1));
 
 % Phi(s):

@@ -15,8 +15,8 @@ cd '/Users/victoriagregory/Dropbox/MenuCostsModel/CollocationModel/VictoriaCode'
 %% Settings
 
 % What to solve for
-options.solvepL     = 'N';      % Solve for p and L given a Y 
-options.solveeq     = 'N';      % Solve equilibrium
+options.solvepL     = 'Y';      % Solve for p and L given a Y 
+options.solveeq     = 'Y';      % Solve equilibrium
 options.solveKS     = 'Y';      % Solve Krussel-Smith
 
 % Tolerances, iterations
@@ -28,7 +28,7 @@ options.itermaxL    = 5000;     % Maximum iterations to find stationary dist L
 options.tolL        = 1e-11;    % Tolerance on L
 
 % Set-up for state space
-glob.n          = [30,5];        % Number of nodes in each dimension
+glob.n          = [10,5];        % Number of nodes in each dimension
 glob.nf         = [300,5];    % Number of points for p and a in histogram L
 glob.curv       = 1;            % Grid curvature for p/P on (0,1] (1 is no curvature)
 glob.spliorder  = [3,1];        % Order of splines (always use linear if shocks are discrete (not AR1))
@@ -74,7 +74,7 @@ switch options.solvepL
         eq                  = solve_pL(Y,param,glob,options);  
         fprintf('Yin = %1.2f,\tYout = %1.2f\n',Y,eq.Y);
 end
-
+eq.L'*eq.v.Pp
 %plot(glob.sf(1:50,1)./(eq.Pa),eq.v.vf(1:50))
 % out=funbas(glob.fspace,glob.sf)*eq.c;
 % plot(glob.sf(350:400,1)./(eq.Pa),eq.v.vf(350:400),glob.sf(350:400,1)./(eq.Pa),out(350:400))
@@ -87,7 +87,7 @@ switch options.solveeq
         options.Ylb         = 0.1;              % Output lower bound
         options.Yub         = 5;               % Output upper boud
         options.itermaxY    = 30;               % Max iterations of bisection
-        options.eqplot      = 'Y'; 
+        options.eqplot      = 'N'; 
         options.eqprint     = 'Y'; 
         options.print       = 'N';
         options.Loadc       = 'Y';              % For new guess of p use old c as starting guess
@@ -98,15 +98,24 @@ end
 %% Set up for Krussel-Smith
 
 % State space
-glob.n          = [7,5,3,3];       % Number of nodes in each dimension
-glob.nf         = [300,8,6,6];      % Number of points for p and a in histogram L
-glob.curv       = 1;                % Grid curvature for p/P on (0,1] (1 is no curvature)
-glob.spliorder  = [3,1,1,1];        % Order of splines (always use linear if shocks are discrete (not AR1))
+glob.n          = [glob.n(1),glob.n(2),3,3];                    % Number of nodes in each dimension
+glob.nf         = [glob.nf(1),glob.nf(2),6,6];                  % Number of points for p and a in histogram L
+glob.curv       = 1;                                            % Grid curvature for p/P on (0,1] (1 is no curvature)
+glob.spliorder  = [glob.spliorder(1),glob.spliorder(2),1,1];    % Order of splines (always use linear if shocks are discrete (not AR1))
 
 % Law of motion - initial guesses
 cKS.b0     = 0.015;
 cKS.b1     = 0.3;
 cKS.b2     = 0.25;
+
+% Options
+options.print       = 'Y';
+options.eqprint     = 'Y';  % for market clearing step in simulation
+options.tolp        = 0.03; % tolerance on aggregate price P
+options.toly        = 0.02; % tolerance on output Y
+options.T           = 75;   % simulation length
+options.S           = 25;   % number of simulations
+
 
 %% Setup problem
 fprintf('Setup\n');
@@ -118,7 +127,7 @@ fprintf('Setup complete\n');
 switch options.solveKS
     case 'Y'
     options.cresult        = [];   % Holds previous solution for c. Empty in this case.
-    [c,v]                  = solve_KS(cKS,param,glob,options);
+    [c,v]                  = solve_KS(cKS,eq,param,glob,options);
 end
 
 outc=funbas(glob.fspace,glob.sf)*c(end/3+1:2*end/3);

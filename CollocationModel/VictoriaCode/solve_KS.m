@@ -1,4 +1,4 @@
-function [c,v] = solve_KS(cKS,param,glob,options)
+function [c,v] = solve_KS(cKS,eq,param,glob,options)
 
     %% Unpack
     ns          = size(glob.s,1); 
@@ -11,5 +11,12 @@ function [c,v] = solve_KS(cKS,param,glob,options)
 
     %% Solve value function problem
     [c,v]       = solve_cKS(cold,cKS,param,glob,options);
+    
+    %% Set-up for simulations
+    
+    % where the coefficients will be saved from each simulation
+    %KS_coeffs      = zeros(options.S,numel(fieldnames(cKS)));
+    
+    
 
 end

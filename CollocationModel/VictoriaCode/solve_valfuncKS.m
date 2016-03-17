@@ -26,9 +26,10 @@ Is = kron(Is,ones(glob.Npi,1));
 
 % RHS of expected value equation
 %ve = glob.exp_matrix*(max(glob.Phi_stilde*ck,glob.Phi_stilde*cc));
-ve = glob.exp_matrix*(dprod((1-Is),glob.Phi_stilde)*ck + dprod(Is,glob.Phi_stilde)*cc);
-
-% Find a policy function for prices
+ve  = [];
+if (nargin<=5)  % When simulating etc, don't need this, nargin is useful
+    ve = glob.exp_matrix*(dprod((1-Is),glob.Phi_stilde)*ck + dprod(Is,glob.Phi_stilde)*cc);     
+end
 
 %__________________________________________________________________________
 % Compute jacobian if requested
