@@ -28,7 +28,7 @@ function [coeffs,R2,paths] = simulate_KS(c,v,cKS,eq,param,glob,options)
     M_sim       = exp(M_sim);
     P_sim       = zeros(1,options.T+1);
     Y_sim       = zeros(1,options.T+1);
-    P_sim(1)    = (1/1)*M_sim(1);
+    P_sim(1)    = (1/1.06)*M_sim(1);
     Y_sim(1)    = M_sim(1)/P_sim(1);
     
     %% simulate

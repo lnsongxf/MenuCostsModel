@@ -121,7 +121,7 @@ options.S           = 5;   % number of simulations
 switch options.solveKS
     case 'Y'
     
-    for itercKS = 1:5;     
+    for itercKS = 1:10     
         % Solve problem, simulate, etc.
         options.cresult             = [];   % Holds previous solution for c. Empty in this case.
         [c,v,KS_coeffs,R2,paths]    = solve_KS(cKS,eq,param,glob,options);
