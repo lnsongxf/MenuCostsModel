@@ -1,23 +1,39 @@
-function [v1,N,Y,I,F,AC,C,Phi_kKzA] = valfuncKS(c2,s,kp,P,param,glob,options)
-%__________________________________________________________________________
-% Compute flow payoff
-k           = s(:,1);
-z           = s(:,3); 
-A           = s(:,4); 
-F           = menufun('F',[k,z.*A],kp,P,param,glob,options);   
-%__________________________________________________________________________
-% Create basis matrices for continuation value
-Phi_k       = splibas(glob.kgrid0,0,glob.spliorder(1),kp);
-Phi_kKzA    = dprod(glob.Phi_KzA,Phi_k); 
-%__________________________________________________________________________
-% Compute value
-v1          = F + glob.beta*Phi_kKzA*c2;               
-%__________________________________________________________________________
-% If requested, provide other policies
-if nargout>1
-    N       = menufun('labor',[k,z.*A],kp,P,param,glob,options);
-    Y       = menufun('output',[k,z.*A],kp,P,param,glob,options);
-    I       = menufun('investment',k,kp,P,param,glob,options);
-    AC      = menufun('costs',k,kp,P,param,glob,options);
-    C       = Y - I - AC;
-end 
+function [v,Phi_pPAMY] = valfuncKS(flag,cE,s,pPstar,Y,param,glob,options)
+%VALFUNC gives value function value given parameters, states
+%-------------------------------------------------
+%   Computes the the value function
+%
+%   INPUTS
+%   - c2         = current collocation coefficient matrix
+%   - s         = state space
+%   - Kp        = >????
+%   - Y         = conjectured value of output, Y
+%   - param     = 
+%   - glob      =
+%   - options   = 
+%   OUTPUT
+%   - v         = value function 
+%-------------------------------------------------
+
+switch flag
+    case 'K'
+        
+        % Compute flow payoff
+        PI              = menufun('PIK',s,[],[],Y,param,glob,options);
+        Phi             = glob.Phi;
+        v               = PI + param.beta*Phi*cE;
+        
+    case 'C'
+        PI              = menufun('PIC',s,pPstar,[],Y,param,glob,options);
+        
+        % Create basis matrices for continuation value
+        Phi_pP          = splibas(glob.pPgrid0,0,glob.spliorder(1),pPstar);
+        Phi_pPAMY       = dprod(glob.Phi_Y, dprod(glob.Phi_M, dprod(glob.Phi_A,Phi_pP)));
+        
+        % Compute value if changing
+        v               = PI + param.beta*Phi_pPAMY*cE;
+        
+end
+
+end
+            

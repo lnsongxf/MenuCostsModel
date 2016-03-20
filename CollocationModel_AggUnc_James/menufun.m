@@ -1,4 +1,4 @@
-function out = menufun(flag,s,pPstar,Y,param,glob,options)
+function out = menufun(flag,s,pPstar,ind,Y,param,glob,options)
 %MENUFUN 
 %-------------------------------------------------
 %
@@ -42,32 +42,21 @@ switch flag
         MenuCost = MCfun();
         out = Y.*(pPstar).^(1-theta) - ...
             delta*Y.^sigma.*( (Y./A).^(1/alpha).*(pPstar).^(-theta/alpha) + MenuCost ).^(1+phielas);      
-%     case 'output'
-%         K       = s(:,1);
-%         Z       = s(:,2);
-%         N       = Nfun(Z,K);
-%         out     = Yfun(Z,N,K); 
-%     case 'labor'
-%         K       = s(:,1);
-%         Z       = s(:,2);
-%         out     = Nfun(Z,K);
-%     case 'investment'
-%         K       = s(:,1);
-%         Kp      = x;
-%         out     = Ifun(K,Kp);
-%     case 'costs'
-%         K       = s(:,1);
-%         Kp      = x;
-%         out     = ACfun(K,Kp);  
+    case 'output'
+        out       = Yfun(pPstar,Y);         % Firm's output 
+    case 'labour'
+        A         = s(:,2);
+        ystar     = Yfun(pPstar,Y);
+        out       = Nfun(ystar, A, ind);    % Firm's labour demand
+    case 'realwage'
+        A         = s(:,2);
+        ystar     = Yfun(pPstar,Y);
+        nstar     = Nfun(ystar, A, ind);       
+        out       = Wfun(nstar,Y);          % Firm's real wage        
 end
 
 
-%% Equilibrium variables and their dependents
-% w           = psi./Y;
-
-
-%__________________________________________________________________________
-% NESTED FUNCTIONS
+%% NESTED FUNCTIONS
 
 % 1. Menu costs
 function MenuCost = MCfun()
@@ -80,20 +69,19 @@ function MenuCost = MCfun()
 end
 
 % 2. Labor demand from FOC(n')
-% function N = Nfun(Z,K)
-%     N = ((nu*Z.*K.^alpha)./w).^(1/(1-nu));
-% end       
-% 
-% % 3. Production function
-% function Y = Yfun(Z,N,K)
-%     Y = Z.*(K.^alpha).*(N.^nu);
-% end  
-%
-% % 4. Investment
-% function I = Ifun(K,Kp)
-%     I = Kp - (1-delta)*K;
-% end
-%__________________________________________________________________________
+function nstar = Nfun(ystar,A,ind)
+    nstar = (ystar./A).^(1/alpha) + ind*Phicost; 
+end       
+
+% 3. Production function
+function ystar = Yfun(pPstar,Y)
+    ystar = Y.*(pPstar).^(-theta);
+end
+
+% 4. Real wage paid by firm
+function wPstar = Wfun(lstar,Y)
+    wPstar = delta*lstar.^(phielas).*Y.^(sigma);
+end
 
 
         

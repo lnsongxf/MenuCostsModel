@@ -1,4 +1,18 @@
-function [eq,val] = solve_eq(param,glob,options)
+function [eq] = solve_eq(param,glob,options)
+%SOLVE_EQ Solve for equilibrium in the no aggregate uncertainty case
+%-------------------------------------------------
+%   Solves for Y and P that satisfy equilibrium when there is no aggregate
+%   uncertainty in the model.
+%
+%   INPUTS
+%   - Y         = conjectured value of output, Y
+%   - P         = conjectured value of aggregate price level, P
+%   - param     = parameters 
+%   - glob      = includes state space, function space, approximating functions etc
+%   - options   = 
+%   OUTPUT
+%   - eq        = equilibrium objects: Y, P
+%-------------------------------------------------
 
 Ylb0    = options.Ylb;
 Yub0    = options.Yub;
@@ -20,12 +34,13 @@ for tt = (1:options.itermaxp)
     Yinvec(tt)      = Y;
     Youtvec(tt)     = eq.Y;
     if strcmp(options.eqprint,'Y') 
-        fprintf('%2i. Yin:\t%2.6f\tYout:\t%2.6f\tt:%2.1f\n',tt,Y,eq.Y,toc(tictic));
+        fprintf('%2i. Yin:\t%2.4f\tYout:\t%2.4f\tt:%2.1f\n',tt,Y,eq.Y,toc(tictic));
+        fprintf('%2i. Pin:\t%2.4f\tPout:\t%2.4f\tt:%2.1f\n',tt,1,eq.P,toc(tictic));
     end
     % 4. Set all flags
     d               = Yinvec-Youtvec;
     eq.flag.exist   = ~all(sign(d)==max(sign(d))); 
-    eq.flag.equi    = (abs(Yinvec(tt)-Youtvec(tt))<options.tolp);
+    eq.flag.equi    = (abs(Yinvec(tt)-Youtvec(tt))<options.tolYeq);
     eq.flag.down    = (Yinvec(tt)>Youtvec(tt));
     eq.flag.up      = (Yinvec(tt)<Youtvec(tt));
     % 5. Shift bounds
