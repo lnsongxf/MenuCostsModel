@@ -42,13 +42,13 @@ pPdist = ind.*pP + (1-ind).*pPstar;    % distribution of real prices given state
 vE  = [];
 if (nargin<=6)  
     % Expected value function    
-    vE = glob.Emat*(dprod(ind, glob.Phi)*cK + dprod((1-ind), glob.Phi)*cC);
+    vE = glob.Emat*(dprod(ind, glob.Phiprime)*cK + dprod((1-ind), glob.Phiprime)*cC);
 end
 
 if (nargout==2)
     jac = [ glob.Phi,                               zeros(glob.Ns),          -param.beta*glob.Phi;
           zeros(glob.Ns),                        glob.Phi,                   -param.beta*Phi_pPA ;
-          -glob.Emat*dprod(ind, glob.Phi),    -glob.Emat*dprod((1-ind), glob.Phi),  glob.Phi       ];          
+          -glob.Emat*dprod(ind, glob.Phiprime),    -glob.Emat*dprod((1-ind), glob.Phiprime),  glob.Phi       ];          
 end
 
 %% Packup output

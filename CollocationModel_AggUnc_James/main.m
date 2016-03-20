@@ -11,6 +11,10 @@
 %--------------------------------
 %
 %   THINGS TO DO
+%   - NOTE: I think one reason things are going wrong is that we're not
+%   accounting for steady state money growth in the no-aggregate
+%   uncertainty case. Since money is growth at rate mu, need to adjust the
+%   price tomorrow by that rate...
 %   - TOTALLY REWRITE SIMULATIONS. Need to actually track people over time,
 %   using 5000 firms. This way, get an actual distribution of firms rather
 %   than the distribution implied by the grid (which is computed inside the value function
@@ -118,7 +122,7 @@ param.sigmaeps  = 0.0048;   % stddev of money growth shocks
 param.tauc      = 0.005;    % tolerance for forecasting rule
 
 
-%% NO AGGREGATE UNCERTAINTY
+ %% NO AGGREGATE UNCERTAINTY
 
 % Setup no aggregate uncertainty problem
 options.agguncertainty = 'N';

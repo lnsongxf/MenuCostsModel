@@ -76,11 +76,12 @@ glob.Phif       = dprod(glob.Phi_Af,Phi_pPf);                     % Used when so
 
 %% Create the basis matrix adjusting for SS money growth/price inflation
 s_prime = [s(:,1)*(1/exp(param.mu)), s(:,2)];
-s_primef = [sf(:,1)*(1/exp(param.mu)), sf(:,2)];
 Phi_pPprime  = splibas(pPgrid0,0,spliorder(1),s_prime(:,1));       % Basis matrix for price grid
-Phi_pPprimef  = splibas(pPgrid0,0,spliorder(1),s_primef(:,1));       % Basis matrix for price grid
-glob.Phiprime        = dprod(glob.Phi_A, Phi_pPprime);      
-glob.Phiprimef        = dprod(glob.Phi_Af, Phi_pPprimef);      
+Phi_Aprime   = splibas(agrid0,0,spliorder(2),s_prime(:,2));        % Used in Bellman / Newton computing expected values
+Phi_Mprime   = splibas(Mgrid0,0,spliorder(3),s_prime(:,3));        % Used in Bellman / Newton computing expected values
+Phi_Yprime   = splibas(Ygrid0,0,spliorder(4),s_prime(:,4));        % Used in Bellman / Newton computing expected values
+% [Np,Na,Nm,Ny] --> Work backwards inside the dprod function
+glob.Phiprime        = dprod(Phi_Yprime, dprod(Phi_Mprime, dprod(Phi_Aprime, Phi_pPprime)));       
 
 
 %% Declare additional global variables
@@ -95,9 +96,6 @@ glob.NpP        = NpP;              % length of state space grid for pP
 glob.fspace     = fspace;           % function space object for the model
 glob.s          = s;                % full state space 
 glob.Ns         = Ns;               % size of full state space
-glob.s_prime    = s_prime;          % Adjusted for SS inflation
-
-
 
 end
 
