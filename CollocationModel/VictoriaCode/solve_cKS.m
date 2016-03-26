@@ -7,7 +7,7 @@ function [c,v] = solve_cKS(cold,cKS,param,glob,options)
     for citer = (1:options.Nbell)
         glob.citer  = citer;
         % 1. Compute values;
-        v           = solve_valfuncKS(cold,s,param,glob,options); 
+        v           = solve_valfuncKS(cold,s,param,glob,options,1); 
         % 2. Update c
         ck          = glob.Phi\full(v.vk);   
         cc          = glob.Phi\full(v.vc); 
@@ -28,7 +28,7 @@ function [c,v] = solve_cKS(cold,cKS,param,glob,options)
     eq.flag.cconv = false;
     for citer = (1:options.Nnewt)
         % 1. Compute values
-        [v,jac]     = solve_valfuncKS(cold,s,param,glob,options);  
+        [v,jac]     = solve_valfuncKS(cold,s,param,glob,options,1);  
         % 2. Update c 
         ckold = cold(1:end/3);  
         ccold = cold(end/3+1:2*end/3);

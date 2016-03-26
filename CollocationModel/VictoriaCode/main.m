@@ -40,7 +40,7 @@ glob.pmax       = 1.50;         % Upper bound on p
 
 % Model parameters
 param.beta      = 0.99;     % discount factor
-param.delta     = 0.3;      % relative weight of labor-to-consumption in utility
+param.delta     = 0.5;      % relative weight of labor-to-consumption in utility
 param.sigma     = 1;        % risk aversion coefficient
 param.phi       = 0.5;      % inveser labour supply elasticity
 param.theta     = 5;        % elasticity of substitution
@@ -104,9 +104,9 @@ glob.curv       = 1;                                            % Grid curvature
 glob.spliorder  = [glob.spliorder(1),glob.spliorder(2),1,1];    % Order of splines (always use linear if shocks are discrete (not AR1))
 
 % Law of motion - initial guesses
-cKS.b0     = 0.015;
-cKS.b1     = 0.3;
-cKS.b2     = 0.25;
+cKS.b0     = 0.001;
+cKS.b1     = 0.5;
+cKS.b2     = 0.1;
 
 % Options
 options.print       = 'Y';
@@ -154,4 +154,151 @@ outk=funbas(glob.fspace,glob.sf)*c(1:end/3);
 vf = max(v.vk,v.vc);
 vfs = max(outc,outk);
 plot(glob.pgridf,vfs(1:glob.nf(1)));
+
+save temp;
+
+%% Replicate Figure 1 in Golosov-Lucas (2007)
+
+load temp;
+
+% aggegate states at which to plot:
+% simulation means of m and Y
+m_mean = mean(paths.mt(20:options.T));
+Y_mean = mean(paths.Y(20:options.T));
+a_plot = nodeunif(100,min(glob.agrid),max(glob.agrid));
+s_plot = gridmake(1,a_plot,Y_mean,m_mean);
+
+% set up state space
+glob.Phi_A  = splibas(glob.agrid0,0,glob.spliorder(2),s_plot(:,2));
+glob.Phi_Y  = splibas(glob.Ygrid0,0,glob.spliorder(3),s_plot(:,3));
+glob.Phi_m  = splibas(glob.mgrid0,0,glob.spliorder(4),s_plot(:,4));
+
+% begin by plotting the middle line:
+% price firm would pick if it can
+% costlessly adjust: v.Pc
+param.Phi       = 0;
+v_mid           = solve_valfuncKS(c,s_plot,param,glob,options);
+
+% for each point in a, find price (lower and upper bound)
+% at which firm is indifferent between changing and keeping
+param.Phi       = 0.156; 
+p_low = zeros(1,length(a_plot));
+p_upp = zeros(1,length(a_plot));
+
+for a=1:length(a_plot)
+    
+    % for the given level of a, set up the state space: lower bound
+    p_plot      = nodeunif(1000,min(glob.pgrid),v_mid.Pc(a));
+    s_plot      = gridmake(p_plot,a_plot(a),Y_mean,m_mean);
+    glob.Phi_A  = splibas(glob.agrid0,0,glob.spliorder(2),s_plot(:,2));
+    glob.Phi_Y  = splibas(glob.Ygrid0,0,glob.spliorder(3),s_plot(:,3));
+    glob.Phi_m  = splibas(glob.mgrid0,0,glob.spliorder(4),s_plot(:,4));
+    
+    % compute lower bound on price
+    v_low       = solve_valfuncKS(c,s_plot,param,glob,options);
+    dist_low    = abs(v_low.vc - v_low.vk);
+    [~,I] = min(dist_low);
+    p_low(a) = p_plot(I);
+    
+    % for the given level of a, set up the state space: upper bound
+    p_plot      = nodeunif(1000,v_mid.Pc(a),max(glob.pgrid));
+    s_plot      = gridmake(p_plot,a_plot(a),Y_mean,m_mean);
+    
+    % compute upper bound on price
+    v_upp       = solve_valfuncKS(c,s_plot,param,glob,options);
+    dist_upp    = abs(v_upp.vc - v_upp.vk);
+    [~,I] = min(dist_upp);
+    p_upp(a) = p_plot(I);
+    
+end
+
+% make figure
+figure;
+plot(log(a_plot),log(v_mid.Pc),'--','Color','k')
+hold on;
+plot(log(a_plot),log(p_low),'LineWidth',2,'Color','b')
+hold on;
+plot(log(a_plot),log(p_upp),'LineWidth',2,'Color','b')
+set(gca,'Xlim',[-0.5 0.5])
+set(gca,'Ylim',[-0.3 0.4])
+grid on;
+xlabel('Log Productivity')
+ylabel('Log Real Price')
+
+%% The graph: James' way
+
+% load temp
+% 
+% Na           = 100;
+% NpP          = 100;
+% agridlongtmp = nodeunif(Na,min(glob.agrid),max(glob.agrid));  % Adds curvature
+% pPgridlongtmp = nodeunif(NpP,min(glob.pgrid),max(glob.pgrid));  % Adds curvature
+% m_mean = mean(paths.mt(20:options.T));
+% Y_mean = mean(paths.Y(20:options.T));
+% s_eval       = gridmake(pPgridlongtmp,agridlongtmp,Y_mean,m_mean);
+% 
+% % Can interpolate for ANY state vector if function is given
+% interp_vK    = funfitxy(glob.fspace,glob.s,v.vk); 
+% interp_vC    = funfitxy(glob.fspace,glob.s,v.vc); 
+% interp_funcs = funeval([interp_vK, interp_vC],glob.fspace,s_eval);
+% vK           = reshape(interp_funcs(:,1), NpP, Na);
+% vC           = reshape(interp_funcs(:,2), NpP, Na);
+% vmax = bsxfun(@max,vK,vC);
+% 
+% 
+% ind          = (interp_funcs(:,1) < interp_funcs(:,2));
+% ind          = double(reshape(ind, NpP, Na));
+% 
+% % krn = [1 -1];
+% for aa = 1:Na
+% %    changes = conv(krn,ind(:,aa));
+% %    idx = find(changes==-1,1,'first');          % These are 1 --> 0 transitions (active to inactive)
+%    idx = find(ind(:,aa)==0,1,'first');          % These are 1 --> 0 transitions (active to inactive)
+% %     if idx > 100
+% %        idx = 100;
+% %    end
+%    upperbound(aa) = pPgridlongtmp(idx); 
+%    idx = find(ind(:,aa)==0,1,'last');          % These are 0 --> 1 transitions (inactive to active)
+%    lowerbound(aa) = pPgridlongtmp(idx);   
+% end
+% 
+% 
+% % Plot the optimal price with no menu cost
+% cE = c(2*end/3+1:end);   
+%     glob.Phi_A  = splibas(glob.agrid0,0,glob.spliorder(2),s_eval(:,2));
+%     glob.Phi_Y  = splibas(glob.Ygrid0,0,glob.spliorder(3),s_eval(:,3));
+%     glob.Phi_m  = splibas(glob.mgrid0,0,glob.spliorder(4),s_eval(:,4));
+%     
+%     % compute lower bound on price
+%     v2       = solve_valfuncKS(c,s_eval,param,glob,options);
+% interp          = funfitxy(glob.fspace,s_eval,v2.Pc); 
+% pPstar          = funeval(interp,glob.fspace,s_eval);
+% pPstar          = reshape(pPstar,NpP,Na);
+% 
+% figure(777)
+% plot(log(agridlongtmp), log(pPstar(1,:)),'linestyle','--')
+% hold all
+% plot(log(agridlongtmp), log(upperbound),'color','k','linewidth',2)
+% hold all
+% plot(log(agridlongtmp), log(lowerbound),'color','k','linewidth',2)
+% xlabel('Log productivity, a')
+% ylabel('Log relative price, p/P')
+% legend('Optimal','Upper bound','Lower bound')
+
+
+%% to do: impluse responses, moments, GL parameterization
+
+%% model-generated moments
+
+% inflation: mean and standard deviation
+pi      = paths.P(2:options.T)./paths.P(1:options.T-1)-1;
+pi_mean = mean(pi(20:end));
+pi_std  = std(pi(20:end));
+
+% standard deviation of optimal prices
+% (not controlling for weights)
+sd_prices = std(paths.pol(:,2:end),1);
+
+% price_changes
+price_change = paths.pol - paths.ps;
 
