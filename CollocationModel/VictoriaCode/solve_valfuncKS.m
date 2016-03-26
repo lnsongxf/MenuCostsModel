@@ -17,6 +17,7 @@ vk     = Pikeep + param.beta*funbas(glob.fspace,s)*ce;
 
 % Compute I(s)
 Is = double((vc>vk));
+v.Is = Is;
 %Is = double((glob.Phi_stilde*cc>=glob.Phi_stilde*ck));
 
 % policy function
@@ -27,7 +28,7 @@ Is = kron(Is,ones(glob.Npi,1));
 % RHS of expected value equation
 %ve = glob.exp_matrix*(max(glob.Phi_stilde*ck,glob.Phi_stilde*cc));
 ve  = [];
-if (nargin<=5)  % When simulating etc, don't need this, nargin is useful
+if (nargin>5)  % When simulating etc, don't need this, nargin is useful
     ve = glob.exp_matrix*(dprod((1-Is),glob.Phi_stilde)*ck + dprod(Is,glob.Phi_stilde)*cc);     
 end
 
@@ -47,6 +48,6 @@ v.vk    = vk;
 v.ve    = ve;
 v.Pc    = Pc;
 v.Pp    = Pp;
-v.Is    = Is;
+%v.Is    = Is;
 
 end
