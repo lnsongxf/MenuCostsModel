@@ -89,17 +89,12 @@ function [coeffs,R2,paths] = simulate_KS(c,v,cKS,eq,param,glob,options)
 
         end
         
-<<<<<<< HEAD
-        Y_sim(t) = Yout;
-        P_sim(t) = Pout;
-=======
         Y_sim(t)        = Yout;
         P_sim(t)        = Pout;
         pol_sim(:,t)    = v.Pp;
         I_sim(:,t)      = v.Is;
         p_state(:,t)    = st(:,1).*(1/pi);
 %        Pin - Pout
->>>>>>> simulation-fix
         
         % 9. Update distributions (is this right?)
         fspaceerg     = fundef({'spli',glob.pgridf,0,1});
