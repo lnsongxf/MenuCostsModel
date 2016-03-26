@@ -101,8 +101,8 @@ function [coeffs] = simulate_KS(c,v,cKS,param,glob,options)
             
         end
         
-        Y_sim(t) = Yin;
-        P_sim(t) = Pin;
+        Y_sim(t) = Yout;
+        P_sim(t) = Pout;
         
         % 10. Update distributions (is this right?)
         fspaceerg     = fundef({'spli',glob.pgridf,0,1});
