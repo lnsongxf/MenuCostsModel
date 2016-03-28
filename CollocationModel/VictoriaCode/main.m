@@ -112,7 +112,7 @@ cKS.b2     = 0.1;
 options.print       = 'Y';
 options.eqprint     = 'N';  % for market clearing step in simulation
 options.toly        = 0.01; % tolerance on output Y
-options.T           = 75;   % simulation length
+options.T           = 96;   % simulation length
 options.S           = 5;   % number of simulations
 
 
@@ -181,34 +181,30 @@ v_mid           = solve_valfuncKS(c,s_plot,param,glob,options);
 
 % for each point in a, find price (lower and upper bound)
 % at which firm is indifferent between changing and keeping
-param.Phi       = 0.156; 
+param.Phi       = 0.156;     % turn the menu cost back on
 p_low = zeros(1,length(a_plot));
 p_upp = zeros(1,length(a_plot));
 
 for a=1:length(a_plot)
     
     % for the given level of a, set up the state space: lower bound
-    p_plot      = nodeunif(1000,min(glob.pgrid),v_mid.Pc(a));
+    pl               = 1000;
+    p_plot_low       = nodeunif(pl,min(glob.pgrid),v_mid.Pc(a));
+    p_plot_upp       = nodeunif(pl,v_mid.Pc(a),max(glob.pgrid));
+    p_plot           = [p_plot_low; p_plot_upp(2:end)];
+    p_plot_upp       = p_plot_upp(2:end);
     s_plot      = gridmake(p_plot,a_plot(a),Y_mean,m_mean);
     glob.Phi_A  = splibas(glob.agrid0,0,glob.spliorder(2),s_plot(:,2));
     glob.Phi_Y  = splibas(glob.Ygrid0,0,glob.spliorder(3),s_plot(:,3));
     glob.Phi_m  = splibas(glob.mgrid0,0,glob.spliorder(4),s_plot(:,4));
     
-    % compute lower bound on price
-    v_low       = solve_valfuncKS(c,s_plot,param,glob,options);
-    dist_low    = abs(v_low.vc - v_low.vk);
-    [~,I] = min(dist_low);
-    p_low(a) = p_plot(I);
-    
-    % for the given level of a, set up the state space: upper bound
-    p_plot      = nodeunif(1000,v_mid.Pc(a),max(glob.pgrid));
-    s_plot      = gridmake(p_plot,a_plot(a),Y_mean,m_mean);
-    
-    % compute upper bound on price
-    v_upp       = solve_valfuncKS(c,s_plot,param,glob,options);
-    dist_upp    = abs(v_upp.vc - v_upp.vk);
-    [~,I] = min(dist_upp);
-    p_upp(a) = p_plot(I);
+    % compute lower/upper bounds on price
+    v           = solve_valfuncKS(c,s_plot,param,glob,options);
+    dist        = abs(v.vc - v.vk);
+    [~,I_low]   = min(dist(1:pl));
+    p_low(a)    = p_plot_low(I_low);
+    [~,I_upp]   = min(dist(pl+1:end));
+    p_upp(a)    = p_plot_upp(I_upp);
     
 end
 
@@ -302,3 +298,135 @@ sd_prices = std(paths.pol(:,2:end),1);
 % price_changes
 price_change = paths.pol - paths.ps;
 
+% mean price increase, sd new prices
+price_increase_ind      = (price_change>0);
+dist_pr_inc             = paths.L.*price_increase_ind;
+dist_pr_inc_norm        = bsxfun(@rdivide, dist_pr_inc, sum(dist_pr_inc,1));
+log_price_increase      = log(price_change.*price_increase_ind);
+pr_log_price_increase   = log_price_increase.*dist_pr_inc_norm;
+avg_log_price_increase  = nansum(pr_log_price_increase,1);
+mean(avg_log_price_increase(20:end))
+
+% frequency of price change
+dist_price_change       = bsxfun(@times,paths.L,paths.I);
+freq_price_change       = sum(dist_price_change,1);
+mean_freq_price_change  = mean(freq_price_change(20:options.T))
+
+% standard deviation of new prices
+avg_price_t             = sum(bsxfun(@times,paths.L,log(paths.ps)),1);
+prices_increased        = paths.ps.*price_increase_ind;
+prices_increased(prices_increased==0)=NaN; 
+prices_increased        = log(prices_increased);
+log_dev_prices_inc      = bsxfun(@minus,prices_increased,avg_price_t);
+sd_new_prices           = nanstd(log_dev_prices_inc,1);
+mean(sd_new_prices(20:end))
+
+
+%% impluse responses
+
+% distribution over idiosyncratic states
+L_sim       = zeros(length(eq.L),options.T);
+L_sim(:,1)  = eq.L;
+
+% policy functions
+pol_sim     = zeros(length(eq.L),options.T-1);
+I_sim       = zeros(length(eq.L),options.T-1);
+
+% initial price states
+p_state     = zeros(length(eq.L),options.T-1);
+
+% draw money growth shocks
+mt          = zeros(1,options.T);
+mt(1)       = param.mu;
+mt(2)       = mt(1);
+mt(3)       = mt(2) - param.sigmaeps;
+%rng(222);
+for t = 4:options.T;
+    mt(t) = param.mu*(1-param.rhom) + param.rhom*mt(t-1);
+    % keep from going outside the grid points:
+    mt(t) = max(min(mt(t),max(glob.mgrid)),min(glob.mgrid));
+end 
+
+% vectors for price level, money, output
+Minit       = 0;
+M_sim       = zeros(1,options.T);
+M_sim(1)    = Minit + mt(1);
+for t = 2:options.T
+    M_sim(t) = mt(t) + M_sim(t-1);
+end
+M_sim       = exp(M_sim);
+P_sim       = zeros(1,options.T+1);
+Y_sim       = zeros(1,options.T+1);
+P_sim(1)    = (1/Y_mean)*M_sim(1);
+Y_sim(1)    = M_sim(1)/P_sim(1);
+
+% simulate
+
+%t=2;
+tictic = tic;
+for t = 2:options.T 
+
+    ylb    = 0.5*Y_sim(t-1);
+    yub    = 1.5*Y_sim(t-1);
+%        Yin    = (1/2)*(ylb+yub);
+    Pin    = P_sim(t-1);
+    Pout   = Pin;
+
+    for itery = 1:50;
+
+        Yin    = (1/2)*(ylb+yub);
+
+        % 1. define state vector
+        st     = gridmake(glob.pgridf,glob.agridf,Yin,mt(t));
+
+        % 2. for Y guess, deflate price distribution
+        pi     = Pout/P_sim(t-1);
+
+        % 3. create basis matrix for continuation values
+        glob.Phi_A  = splibas(glob.agrid0,0,glob.spliorder(2),st(:,2));
+        glob.Phi_Y  = splibas(glob.Ygrid0,0,glob.spliorder(3),st(:,3));
+        glob.Phi_m  = splibas(glob.mgrid0,0,glob.spliorder(4),st(:,4));
+
+        % 4. compute real price distribution from policy functions
+        v  = solve_valfuncKS(c,[st(:,1).*(1/pi) st(:,2:end)],param,glob,options);
+
+        % 5. Multiply by P_t guess to get nominal price distribution
+        nom_prices  = v.Pp.*Pin;
+
+        % 6. Use CES to aggregate price level
+        Pout        = (L_sim(:,t-1)'*(nom_prices.^(1-param.theta)))^(1/(1-param.theta));
+
+        % 7. Market clearing
+        Yout        = M_sim(t)./Pout;
+
+        % 8. Check convergence of Y
+        down        = (Yin>Yout); 
+        up          = (Yin<Yout);
+        ylb         = up*Yin + down*ylb;
+        yub         = up*yub + down*Yin;
+        if strcmp(options.eqprint,'Y') 
+             fprintf('%2i. yin:\t%2.6f\tyout:\t%2.6f\tt:%2.1f\n',itery,Yin,Yout,toc(tictic));
+        end
+%            if abs(Yout-Yin)<options.toly;fprintf('Solved\n');break;end;
+        if abs(Yout-Yin)<options.toly;break;end;
+%             Yin = 0.9*Yin + 0.1*Yout;
+
+    end
+
+    Y_sim(t)        = Yout;
+    P_sim(t)        = Pout;
+    pol_sim(:,t)    = v.Pp;
+    I_sim(:,t)      = v.Is;
+    p_state(:,t)    = st(:,1).*(1/pi);
+%        Pin - Pout
+
+    % 9. Update distributions (is this right?)
+    fspaceerg     = fundef({'spli',glob.pgridf,0,1});
+    Pp            = max(min(v.Pp,max(glob.pgridf)),min(glob.pgridf));
+    Qp            = funbas(fspaceerg,Pp);
+    L_sim(:,t)    = dprod(glob.QA,Qp)'*L_sim(:,t-1);
+
+end
+    
+dev = Y_sim - Y_mean;
+plot(dev(1:12))

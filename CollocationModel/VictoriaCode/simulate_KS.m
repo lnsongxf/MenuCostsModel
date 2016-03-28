@@ -108,8 +108,8 @@ function [coeffs,R2,paths] = simulate_KS(c,v,cKS,eq,param,glob,options)
     %% Finishing up...
     
     % compute regression coefficients
-    X = [ones(73,1) log(Y_sim(1:73))' mt(3:end)'];
-    y = log(Y_sim(2:74))';
+    X = [ones(options.T-2,1) log(Y_sim(1:options.T-2))' mt(3:end)'];
+    y = log(Y_sim(2:options.T-1))';
     [b ,bint,r,rint,stats] = regress(y,X);
     coeffs = b';
     R2     = stats(1);
