@@ -1,4 +1,4 @@
-function [param,glob] = setup(param,glob,options)
+function [param,glob] = setup_agg(param,glob,cKS,options)
 %SETUP Prepares model objects for collocation procedure
 %-------------------------------------------------
 %   This file prepares the Markov process (continuous or discretized), the
@@ -10,15 +10,18 @@ function [param,glob] = setup(param,glob,options)
 %   INPUTS
 %   - param     = model parameters
 %   - glob      = global variables, including those used in the approximating functions
+%   - cKS       = Krussel Smith law of motion parameters: (lnY = b0 + b1lnY-1 + b2 Dm)
 %   - options   = options, including continuous vs. discrete Markov, Tauchen vs. Rouwenhurst, 
 %-------------------------------------------------
-
 
 %% State space for idiosyncratic productivity
 % One persistent shock  % [Np,Na,Nm,Ny]
 Na              = glob.n(2);
 Nm              = glob.n(3);
 Ny              = glob.n(4);
+b0 = cKS(1);
+b1 = cKS(2);
+b2 = cKS(3);
 
 switch options.AR1
 %     case 'Y' 
@@ -32,9 +35,9 @@ switch options.AR1
     case 'N'
         [Pa,agrid,Pssa]      = setup_MarkovZ(Na,param.sigzeta,param.rhoa,1);
         
-        muvar = [param.mu*(1-param.rhom); param.b0 + param.b2*param.mu*(1-param.rhom)];
-        Avar = [param.rhom, 0; param.b2*param.rhom, param.b1];
-        Svar = [param.sigmaeps; param.b2*param.sigmaeps];
+        muvar = [param.mu*(1-param.rhom); b0 + b2*param.mu*(1-param.rhom)];
+        Avar = [param.rhom, 0; b2*param.rhom, b1];
+        Svar = [param.sigmaeps; b2*param.sigmaeps];
         [tmpgrid,Pmy,Pssmy]              = tauchenvar([Nm; Ny],muvar,Avar,Svar);
         Pmy = Pmy';     % Make sure 
         Mgrid = exp(unique(tmpgrid(1,:)))'; % Take D(ln(M_t)) back to DM_t 
@@ -65,9 +68,6 @@ pPgrid = sgrid{1};  %s(s(:,2)==s(1,2),1);
 agrid = sgrid{2};   % s(s(:,1)==s(1,1),2);
 Mgrid = sgrid{3};
 Ygrid = sgrid{4};
-
-
-
 
 NpP = size(pPgrid,1); 
 Na = size(agrid,1);
@@ -209,11 +209,14 @@ glob.Ny         = Ny;               % length of state space grid for Y
 glob.fspace     = fspace;           % function space object for the model
 glob.s          = s;                % full state space 
 glob.Ns         = Ns;               % size of full state space
+glob.s_prime    = s_prime;          % Adjusted price 
 
 
-%__________________________________________________________________________
+    
+    
+    
+    
 end
-
 
         
    

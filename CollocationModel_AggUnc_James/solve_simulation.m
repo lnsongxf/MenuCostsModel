@@ -1,7 +1,8 @@
-function sim = solve_simulation(s0,T,eq,val,param,glob,options)
+function sim = solve_simulation(s0,eq,val,param,glob,options)
 %SOLVE_SIMULATION Simulates the model
 %-------------------------------------------------
-%   This file simulates the solved model.
+%   This file simulates the solved model. This version only solves with no
+%   aggregate uncertainty.
 %
 %   INPUTS
 %   - s0        = Initial vector/starting position of firms e.g. starting
@@ -15,9 +16,6 @@ function sim = solve_simulation(s0,T,eq,val,param,glob,options)
 %   - options   = options, including continuous vs. discrete Markov, Tauchen vs. Rouwenhurst, 
 %-------------------------------------------------
 
-% % % % % % NEED TO FIX THIS FILE: NOT WORKING YET
-
-
 %% UNPACK
 agrid       = glob.agrid;
 c           = eq.c;
@@ -27,6 +25,8 @@ aub         = max(agrid);
 alb         = min(agrid);
 rho         = param.rhoa;
 sigma       = param.sigzeta; 
+T           = options.T;
+M           = 1;    % keep money stock constant at 1.
 
 %% SIMULATION
 
@@ -35,150 +35,94 @@ st          = s0;
 
 % Storage (firms)
 ni          = size(st,1); 
-Kt          = zeros(T,ni);
-Zt          = zeros(T,ni);  
-Yt          = zeros(T-1,ni);
-Nt          = zeros(T-1,ni);
-Dt          = zeros(T-1,ni);
-v1t         = zeros(T-1,ni);
-It          = zeros(T-1,ni);
-Ct          = zeros(T-1,ni);
+pPt         = zeros(T,ni);
+at          = zeros(T,ni);  
+yt          = zeros(T-1,ni);
+nt          = zeros(T-1,ni);
+wPt          = zeros(T-1,ni);
 
-% Storage (aggregate)
-Kat         = zeros(T,1);
+% Storage (aggregate), not actually used again: just kept track of.
+Pt         = zeros(T,1);                   
+Yt         = zeros(T,1);                   
+Nt         = zeros(T,1);                   
 
 % Initial productivities
-switch options.AR1
-    case 'N'
-        for i = 1:size(st,1);
-            st(i,2) = find(glob.agrid==st(i,2));    % Convert into indexes
-        end
-        Zt(1,:)     = glob.agrid(st(:,2)');  
-    case 'Y'
-        switch options.IRF 
-            case 'Y'
-                Zt(1,:)     = exp(sigma)*st(:,2)'; 
-                st(:,2)     = Zt(1,:)';
-            case 'N'
-                Zt(1,:)     = st(:,2)';
-        end     
-end 
+for i = 1:size(st,1);
+    st(i,2) = find(glob.agrid==st(i,2));    % Convert into indexes
+end
+at(1,:)     = glob.agrid(st(:,2)');
 
-% Initial capital
-Kt(1,:)     = st(:,1)';
-Kat(1,:)    = sum(Kt(1,:)'); 
+% Initial prices/output
+pPt(1,:)   = st(:,1)';
+Pt(1,:)    = ( pPt(1,:).^(1-param.theta)*(1/ni)*ones(ni,1) )^(1/(1-param.theta));  % Agg price, not actually used just kept track of.
+Yt(1,:)    = M/Pt(1,:);
 
 % Policy interpolant
-cKp         = funfitxy(fspace,glob.sf,eq.v.Kp); 
-cY          = funfitxy(fspace,glob.sf,eq.v.Y);
-cN          = funfitxy(fspace,glob.sf,eq.v.N);
-cD          = funfitxy(fspace,glob.sf,eq.v.D);
-cI          = funfitxy(fspace,glob.sf,eq.v.I);
-cC          = funfitxy(fspace,glob.sf,eq.v.C);
-cv1         = funfitxy(fspace,glob.sf,eq.v.v1);
+cpP         = funfitxy(fspace,glob.sf,eq.v.pPstar); 
+cy          = funfitxy(fspace,glob.sf,eq.v.ystar);
+cn          = funfitxy(fspace,glob.sf,eq.v.nstar);
+cwP         = funfitxy(fspace,glob.sf,eq.v.wPstar);
+% cv1         = funfitxy(fspace,glob.sf,eq.v.v1);
 
 % Draw productivity shocks
 rng(999);
 PS          = rand(ni,T); 
 
 % Option: Constant productivity simulation
-if strcmp(options.constprod,'Y');
-    P       = eye(glob.Na,glob.Na);
-else 
-    P       = glob.P;        
-end
+P       = glob.P;        
 
 % Simulation
 for t = 2:T;
     % 1. Update state
     stm1                = st;
-    % 2. Pull out state variables
-     K               = stm1(:,1);
-    switch options.AR1
-        case 'Y'
-            Z               = stm1(:,2);
-        case 'N'
-            Z               = glob.agrid(stm1(:,2));
-    end
-    % 2. Compute values and policies given states stm1
-    switch options.simsolve
-        case 'Y'    
-            % Recompute basis matrix for continuation values
-            glob.Phi_Z      = splibas(glob.agrid0,0,glob.spliorder(2),Z);
-            % Solve problem (include 1 at end so don't compute E(v))
-            v               = solve_valfunc(c,[K,Z],1,param,glob,options,1);
-        case 'N'
-            X               = funeval([cKp,cY,cN,cD,cI,cC,cv1],fspace,[K,Z]);
-            v.Kp            = max(min(X(:,1),max(glob.kgrid)),min(glob.kgrid));
-            v.Y             = X(:,2);
-            v.N             = X(:,3);
-            v.D             = X(:,4);
-            v.I             = X(:,5);
-            v.C             = X(:,6);
-            v.v1            = X(:,7);
-    end
-    % 3. Evolve Z stochastically
-    switch options.AR1
-        case 'Y'
-            switch options.constprod
-                case 'Y'
-                    % Keep constant
-                    Zp          = Z;
-                case 'N'
-                    switch options.IRF
-                        case 'N'
-                            % Draw continuously distributed shock
-                            Zp  = exp(rho*log(Z) + sigma*randn(size(Z)));
-                        case 'Y'
-                            % Evolve without shock
-                            Zp  = exp(rho*log(Z));
-                    end
-            end
-            Zp                  = max(min(Zp,aub),alb);
-            st                  = [v.Kp,Zp];
-            Zt(t,:)             = st(:,2)';
-        case 'N'
-            Ptrans              = P(st(:,2),:);             % Transition probabilities for each individual
-            Pcumsum             = cumsum(Ptrans')';
-            x                   = PS(:,t);                  % Draw productivity shocks
-            x                   = repmat(x,1,Na);                  
-            PPP                 = (Pcumsum>=x);  
-            PPP                 = cumsum(PPP')';            % Numbers elements greater than x
-            [~,J]               = find(PPP==1);
-            Jp                  = J;
-            st                  = [v.Kp,Jp];
-            Zt(t,:)             = agrid(st(:,2)');
-    end
-    %______________________________________________________________________
-    % Record *next period state* for K
-    Kt(t,:)             = st(:,1)';
-    %______________________________________________________________________
-    % Record period t objects, these depend on...
-    Yt(t-1,:)           = v.Y';
-    Nt(t-1,:)           = v.N';
-    Dt(t-1,:)           = v.D';
-    v1t(t-1,:)          = v.v1';
-    It(t-1,:)           = v.I';
-    Ct(t-1,:)           = v.C';
-    %______________________________________________________________________
-    % Aggregates
-    Kat(t)              = sum(Kt(t,:)');
-    Yat(t)              = sum(Yt(t-1,:)');
-    Nat(t)              = sum(Nt(t-1,:)');
-    Dat(t)              = sum(Dt(t-1,:)');
-    Iat(t)              = sum(It(t-1,:)');
-    Cat(t)              = sum(Ct(t-1,:)');
     
-    fprintf('t: %3i\tAgg K: %1.3f\n',t,Kat(t)); 
+    % 2. Pull out state variables
+     pP               = stm1(:,1);
+     A               = glob.agrid(stm1(:,2));       % Put productivities onto the grid
+    
+    % 3. Compute values and policies given states stm1
+    % Recompute basis matrix for continuation values
+    glob.Phi_A      = splibas(glob.agrid0,0,glob.spliorder(2),A);
+    Phi_pP          = splibas(glob.pPgrid0,0,glob.spliorder(1),pP);
+    glob.Phi       = dprod(glob.Phi_A,Phi_pP); 
+    
+    % Solve problem (include 1 at end so don't compute E(v))
+    v               = solve_valfunc_noagg(c,[pP,A],Yt(t,:),param,glob,options,1);
+
+    % 4. Evolve A stochastically
+    Ptrans              = P(st(:,2),:);             % Transition probabilities for each individual
+    Pcumsum             = cumsum(Ptrans')';
+    x                   = PS(:,t);                  % Draw productivity shocks
+    x                   = repmat(x,1,Na);
+    PPP                 = (Pcumsum>=x);
+    PPP                 = cumsum(PPP')';            % Numbers elements greater than x
+    [~,J]               = find(PPP==1);
+    Jp                  = J;
+    st                  = [v.pPstar,Jp];
+    at(t,:)             = agrid(st(:,2)');
+    % Record *next period state* for pP
+    pPt(t,:)             = st(:,1)';   
+    % Record period t objects, these depend on...
+    yt(t-1,:)           = v.ystar';
+    nt(t-1,:)           = v.nstar';
+    wPt(t-1,:)          = v.wPstar';
+    % Aggregates
+    Pt(t)               = ( pPt(t,:).^(1-param.theta)*(1/ni)*ones(ni,1) )^(1/(1-param.theta)); 
+    Yt(t)               = sum(yt(t-1,:));
+    Nt(t)               = sum(nt(t-1,:));    
+    
+    fprintf('t: %3i\tAgg P: %1.3f\n',t,Pt(t)); 
 end
 
 %% PACK UP OUTPUT OBJECT {sim}
-sim.Kt      = Kt;
-sim.Zt      = Zt;
+sim.pPt     = pPt;
+sim.at      = at;
+sim.nt      = nt;
+sim.wPt     = wPt;
+sim.Pt      = Pt;
+sim.Yt      = Yt;
 sim.Nt      = Nt;
-sim.Dt      = Dt;
-sim.v1t     = v1t;
-sim.Kat     = Kat;
+
 
 %% Figures
 if strcmp(options.simplot,'Y')

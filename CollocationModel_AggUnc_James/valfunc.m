@@ -6,9 +6,9 @@ function [ v, Phi_pPAMY ] = valfunc(flag,cE,s,pPstar,Y,param,glob,options)
 %   Computes the the value function
 %
 %   INPUTS
-%   - c2         = current collocation coefficient matrix
+%   - c2        = current collocation coefficient matrix
 %   - s         = state space
-%   - Kp        = >????
+%   - pPstar    = Optimal real price choice of the firm
 %   - Y         = conjectured value of output, Y
 %   - param     = 
 %   - glob      =
@@ -24,23 +24,14 @@ function [ v, Phi_pPAMY ] = valfunc(flag,cE,s,pPstar,Y,param,glob,options)
 % A           = s(:,2);
 switch flag
     case 'K'
-        PI        = menufun('PIK',s,[],Y,param,glob,options); 
-        
-        % Create basis matrices for continuation value
-        Phi = glob.Phi;
-        
-        
-        % Compute value if keeping
-        v          = PI + param.beta*Phi*cE;  
+        PI          = menufun('PIK',s,[],Y,param,glob,options); 
+        Phi         = glob.Phi;
+        v           = PI + param.beta*Phi*cE;  
         
     case 'C'
         PI        = menufun('PIC',s,pPstar,Y,param,glob,options); 
-        
-        % Create basis matrices for continuation value
         Phi_pP  = splibas(glob.pPgrid0,0,glob.spliorder(1),pPstar);
         Phi_pPAMY     = dprod(glob.Phi_Y, dprod(glob.Phi_M, dprod(glob.Phi_A,Phi_pP)));    
-        
-        % Compute value if changing
         v          = PI + param.beta*Phi_pPAMY*cE;       
 
 end

@@ -1,124 +1,190 @@
-function [At,pt,Kt] = solve_KS(cKS,eq,param,glob,options)
+function [DMt,Yt,Pt,Lt,ind,pPdist] = solve_KS(cKS,eq,param,glob,options)
+%SOLVE_KS Implements the Krussel Smith Algorithm for the model
+%-------------------------------------------------
+%   Simulates the aggregate states, solves the model at each step, 
+%   
+%   INPUTS
+%   - cKS       = parameters for the law of motion (lnY = b0 + b1lnY-1 + b2 Dm)
+%   - eq        = ???
+%   - param     = model parameters
+%   - glob      = global variables, including those used in the approximating functions
+%   - options   = options, including continuous vs. discrete Markov, Tauchen vs. Rouwenhurst, 
+%
+%   OUTPUTS
+%   - At        = Simulated path for aggregate productivity, A
+%   - pt        = Simulated path for price level, p
+%   - Kt        = Simulated path for aggregate capital, K
+%-------------------------------------------------
+%
+%   NEED TO FIX THE TIMING OF THE MONEY SHOCKS!!!!
+%
+%
+%% Run setup file again with new cKS params
+glob = setup_agg(param,glob,cKS,options);
+
 
 %% Unpack
 ns          = size(glob.s,1); 
+T           = options.T;
 
 %% Initialise guesses (if val.cresult has an old guess in it, use that)
-c1old       = zeros(ns,1);  
-c2old       = zeros(ns,1); 
-cold        = [c1old;c2old];
+cKold       = zeros(ns,1);
+cCold       = zeros(ns,1);
+cEold       = zeros(ns,1);
+cold        = [cKold;cCold;cEold];
+
 
 %% Solve value function problem
-glob.p      = eq.p;     %%%% DEBUG
-c           = solve_cKS(cold,cKS,param,glob,options);
+% Define equilibrium output and price
+glob.P      = eq.P;     %%%% DEBUG
+glob.Y      = eq.Y;     %%%% DEBUG
+c           = solve_cKS(cold,cKS,param,glob,options);   % Get new val func approx coefficients
 
 %% Simulate 
-T           = 100;
-pt          = zeros(T,1);   
-At          = zeros(T,1);
-Kt          = zeros(T,1);
 
-%% Initialize aggregate state
-Lt          = eq.L;
-Kt(1)       = eq.Ka; 
-At(1)       = 1;
+Pt  = zeros(T,1);   
+Yt  = zeros(T,1);   
+DMt = zeros(T+1,1);  % Dmt = (1-rho)mu + rho Dmt-1 + epst 
+Mt  = zeros(T+1,1);
+ind        = zeros(glob.nf(1)*glob.nf(2),T);
+pPdist     = zeros(glob.nf(1)*glob.nf(2),T);
+Lt         = zeros(glob.nf(1)*glob.nf(2),T);
 
-%% Draw aggregate shocks
-% switch options.Krun
-%     case 'Y'
-%         At = ones(T,1);     %%%% DEBUG
-%     case 'N'
-T = 2000;
-        rng(222);
-        mu = (1/2)*(glob.sigA^2)/((1+glob.rhoA)*(1-glob.rhoA));
-%         mu = 1+(1/2)*(glob.sigA^2)/((1+glob.rhoA)*(1-glob.rhoA));
-        for t = 2:T;
-            At(t) = exp(mu+glob.rhoA*log(At(t-1)) + glob.sigA*randn);
-            At(t) = max(min(At(t),max(glob.Agrid)),min(glob.Agrid));
-        end 
-% end
+%% Draw aggregate shocks from Markov chain (i.e. for money growth shocks)
+% Simulate the true AR(1) and check to make sure it's within the gridspace, 
+% adjusting to endpoints if simulation falls above or below the grid 
 
-% At = ones(T,1);     %%%% DEBUG
-options.tolp = 1e-3;
-
-for t=1:options.T;
-    fprintf('t = %1i\n',t);
-    %% 1. Construct state vector
-    st              = gridmake(glob.kgridf,Kt(t),glob.zgridf,At(t));
-    
-    %% 2. Compute basis matrix for continuation values
-    Phi_K           = splibas(glob.Kgrid0,0,glob.spliorder(2),st(:,2));
-    Phi_z           = splibas(glob.zgrid0,0,glob.spliorder(3),st(:,3));
-    Phi_A           = splibas(glob.Agrid0,0,glob.spliorder(4),st(:,4));
-    Phi_zA          = dprod(Phi_A,Phi_z);
-    glob.Phi_KzA    = dprod(Phi_zA,Phi_K);  
-    
-    %% 3. Solve partial equilibrium
-    plb             = 0.50;
-    pub             = 10.00;
-    tictic          = tic; 
-%     options.tolp    = Inf;
-    for iterp = 1:50;
-        pin         = (1/2)*(plb+pub);
-%         pin         = eq.p;
-        P           = ones(size(st(:,1)))*pin;
-        v           = solve_valfuncKS(c,st,P,param,glob,options,1);
-        Ca          = Lt'*v.C;
-        pout        = 1/Ca; 
-        down        = (pin>pout); 
-        up          = (pin<pout);
-        plb         = up*pin + down*plb;
-        pub         = up*pub + down*pin;
-%         keyboard 
-        if strcmp(options.eqprint,'Y') 
-            fprintf('%2i. pin:\t%2.6f\tpout:\t%2.6f\tt:%2.1f\n',iterp,pin,pout,toc(tictic));
-        end
-        if abs(pin-pout)<options.tolp;fprintf('Solved\n');break;end;
+if strcmp(options.irf, 'N')
+    if strcmp(options.seed,'Y')
+        rng(222);       % Set random number generator seed
     end
-    pt(t)           = pin;
+    DMshocks = randn(T,1);
+elseif strcmp(options.irf, 'Y')
+    DMshocks = zeros(T,1);
+    DMshocks(1) = 1;
+end
+
+% Initialize DM and M at t=0
+DMt(1)    = exp(param.mu);  % Initialize at median state (SS?)
+Mt(1)     = 1;            % Set initial money stock to 1 (note this does not need to be on any grid)
+for t = 2:T+1;
+    DMt(t) = exp(param.mu*(1 - param.rhom) + param.rhom*log(DMt(t-1)) + param.sigmaeps*DMshocks(t-1));
+    DMt(t) = max(min(DMt(t),max(glob.Mgrid)),min(glob.Mgrid));   % Adjust to keep within gridspace
+    Mt(t)  = Mt(t-1)*DMt(t);         % Update level of money supply
+end
+
+
+%% Initialize aggregate states
+
+Lt(:,1)     = eq.L;         % Set initial distribution at no agg. uncertainty stationary dist
+Lt(:,2)     = eq.L;         % Set initial distribution at no agg. uncertainty stationary dist
+Pt(1)       = (1/eq.Y)*Mt(1);         % Initialize at eqm P under no agg. uncertainty 
+Pt(2)       = Pt(1); 
+Yt(1)       = Mt(1)/Pt(1);         % Initialize at eqm Y under no agg. uncertainty 
+Yt(2)       = Yt(1);
+
+%% Simulation/KS updating
+
+for t=2:T 
     
-    %% 4. Compute next period states
-    % 1. Capital
-    Kt(t)           = Lt'*v.kp;
-    Kt(t)           = max(min(Kt(t),max(glob.Kgrid)),min(glob.Kgrid));
-    % 2. Distribution
-    kp              = max(min(v.kp,max(glob.kgridf)),min(glob.kgridf));
-    fspaceergk      = fundef({'spli',glob.kgridf,0,1});
-    Qk              = funbas(fspaceergk,kp);
-    Lt              = dprod(glob.QZ,Qk)'*Lt;
-%     fprintf('dL = %2.3e\n',norm(Ltnew-Lt)/norm(Lt));
-%     Lt              = Ltnew;
+    % 3. Solve partial equilibrium           
+for iterY = 1:50;
+    Yin         = Yt(t); 
+    Pin         = Pt(t); 
+    st          = gridmake(glob.pPgridf,glob.agridf,DMt(t),Yin);
+    pi = Pin/Pt(t-1);
+    
+    % Computing new basis matrices based on the current state vector, st
+    glob.Phi_A           = splibas(glob.agrid0,0,glob.spliorder(2),st(:,2));        % Used in Bellman / Newton computing expected values
+    glob.Phi_M           = splibas(glob.Mgrid0,0,glob.spliorder(3),st(:,3));        % Used in Bellman / Newton computing expected values
+    glob.Phi_Y           = splibas(glob.Ygrid0,0,glob.spliorder(4),st(:,4));        % Used in Bellman / Newton computing expected values
+    glob.Phi             = funbas(glob.fspace,st);
+    
+    v           = solve_valfuncKS(c,[st(:,1)*(1/pi) st(:,2:end)],param,glob,options,1);    
+    Pout        = ( Lt(:,t)'*(v.pPdist*Pin).^(1 - param.theta) ).^(1/(1-param.theta));
+    Yout        = Mt(t)/Pout;
+    
+%     Pt(t)       = glob.dampP*Pout + (1-glob.dampP)*Pin;
+    Yt(t)       = glob.damp*Yout + (1-glob.damp)*Yin;    
+    %         keyboard
+    if strcmp(options.eqprint,'Y')
+        fprintf('%2i. Yin:\t%2.4f\tYout:\t%2.4\n',iterY,Yin,Yout);
+        fprintf('%2i. Pin:\t%2.4f\tPout:\t%2.4f\n',iterY,Pin,Pout);
+        fprintf('---------------------------------\n');
+    end
+    if abs(Yin-Yout)<options.tolYks
+        fprintf('Solved for output, t = %1i\n', t)
+        break
+    end    
+end
+
+fprintf('%2i. Yin:\t%2.4f\tYout:\t%2.4f\n',iterY,Yin,Yout);
+fprintf('%2i. Pin:\t%2.4f\tPout:\t%2.4f\n',iterY,Pin,Pout);
+fprintf('---------------------------------\n');
+    
+    % Save outputs
+    Yt(t)           = Yout;
+    Pt(t)           = Pout;    
+    ind(:,t)        = v.ind;   
+    
+    %% 4. Compute next period states [Np,Na,Nm,Ny]
+    % 1. Distribution of prices (Only need dist over idiosyncratic states
+    % since the current aggregate states are known. 
+    
+    pPdist(:,t)      = max( min(v.pPdist,max(glob.pPgridf)), min(glob.pPgridf)); 
+    fspaceergpP      = fundef({'spli',glob.pPgridf,0,1});   % Linear interpolant
+    QpP              = funbas(fspaceergpP,pPdist(:,t));
+    Ltnew            = dprod(glob.QA,QpP)'*Lt(:,t);
+    Lt(:,t+1)        = Ltnew;
+    
     % 3. Productivity
     %%%% Already computed 
     
+    % 4. Output: guess for t+1 is the same as last period eqm
+    Yt(t+1)  = Yt(t);
+    
+    % 5. Price: guess for t+1 is the same as last period eqm
+    Pt(t+1)  = Pt(t); 
+
     %% Plot paths
-    figure(888);      
-    subplot(2,2,1);plot(At(1:t));title('At');grid on;
-    subplot(2,2,2);plot(pt(1:t));title('p_t');grid on;
-    subplot(2,2,3);plot(Kt(1:t));title('K_t');grid on;
-%     strcmp(options.Krun,'Y') && (t>1)
-%     if strcmp(options.Krun,'Y') && (t>1) 
-%         fprintf('dK = %1.4e\n',abs(Kt(t)-Kt(t-1)));
-%         if abs(Kt(t)-Kt(t-1))<0.0001;return;end;
-%         keyboard
-%     end
+    if strcmp(options.simplot,'Y')
+        figure(888);
+        subplot(2,2,1);
+        plot(DMt(1:t+1)); 
+        title('Money growth, \Delta M_t');
+        grid on;
+        subplot(2,2,2);
+        plot(Yt(1:t));
+        title('Output, Y_t');
+        grid on;
+        subplot(2,2,3);
+        plot(Pt(1:t),'color','b');
+        hold on
+        plot(Mt(1:t+1),'color','r');
+        title('Prices (blue) vs. Money (red), P_t, M_t');
+        grid on;
+        drawnow;
+    end
+
     
 end
     
-   
     
+%% Tidy output    
+DMt = DMt(2:T+1);
+Yt  = Yt(1:T);
+Pt  = Pt(1:T); 
+
+if nargout>3
+    Lt         = Lt(:,1:end);
+    ind        = ind(:,1:T);   
+    pPdist     = pPdist(:,1:T);
+end
     
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
+%% Temp stuff
+% 
+% ones(1,length(Lt))*Lt
+% v.pPstar'*Lt    
     
 end
 
