@@ -50,7 +50,7 @@ glob.QA         = kron(A,ones(Npf,1));
 %% Create one time only basis matrices: these might need to be changed
 glob.Phi_A      = splibas(agrid0,0,spliorder(2),s(:,2));                % Used in Bellman / Newton computing expected values
 glob.Phi_Af     = splibas(agrid0,0,spliorder(2),sf(:,2));               % Used when solving on fine grid
-Phi_P           = splibas(pgrid0,0,spliorder(1),s(:,1));
+Phi_P           = splibas(pgrid0,0,spliorder(1),s(:,1)*1/exp(param.mu));
 glob.Phi        = dprod(glob.Phi_A,Phi_P);                              % Used in Bellman / Newton updating of c
 
 %% Declare additional global variables
