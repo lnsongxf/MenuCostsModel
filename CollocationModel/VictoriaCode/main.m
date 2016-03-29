@@ -29,7 +29,7 @@ options.tolL        = 1e-11;    % Tolerance on L
 
 % Set-up for state space
 glob.n          = [10,5];        % Number of nodes in each dimension
-glob.nf         = [300,5];    % Number of points for p and a in histogram L
+glob.nf         = [500,5];    % Number of points for p and a in histogram L
 glob.curv       = 1;            % Grid curvature for p/P on (0,1] (1 is no curvature)
 glob.spliorder  = [3,1];        % Order of splines (always use linear if shocks are discrete (not AR1))
 glob.pmin       = 0.75;         % Lower bound on p
@@ -69,16 +69,17 @@ fprintf('Setup complete\n');
 %% Solve only p and L for a given output Y
 switch options.solvepL
     case 'Y'
-        Y                   = 1.01;    % Conjectured value of Y    
+        Y                   = 0.9;    % Conjectured value of Y    
         options.cresult     = [];   % Holds previous solution for c. Empty in this case.
         eq                  = solve_pL(Y,param,glob,options);  
         fprintf('Yin = %1.2f,\tYout = %1.2f\n',Y,eq.Y);
 end
 eq.L'*eq.v.Pp
-%plot(glob.sf(1:50,1)./(eq.Pa),eq.v.vf(1:50))
+% plot(glob.sf(1:50,1)./(eq.Pa),eq.v.vf(1:50))
 % out=funbas(glob.fspace,glob.sf)*eq.c;
 % plot(glob.sf(350:400,1)./(eq.Pa),eq.v.vf(350:400),glob.sf(350:400,1)./(eq.Pa),out(350:400))
 % legend('RHS','LHS')
+plot(glob.pgridf,eq.v.vf(1:500),glob.pgridf,eq.v.vf(501:1000),glob.pgridf,eq.v.vf(1001:1500),glob.pgridf,eq.v.vf(1501:2000))
 
 %% Solve equilibrium
 switch options.solveeq
@@ -87,13 +88,17 @@ switch options.solveeq
         options.Ylb         = 0.1;              % Output lower bound
         options.Yub         = 5;               % Output upper boud
         options.itermaxY    = 30;               % Max iterations of bisection
-        options.eqplot      = 'N'; 
+        options.eqplot      = 'Y'; 
         options.eqprint     = 'Y'; 
         options.print       = 'N';
         options.Loadc       = 'Y';              % For new guess of p use old c as starting guess
         options.plotSD      = 'N';              % If Y plot steady state distribution
         eq                  = solve_eq_menucost(param,glob,options); 
 end
+
+L_reshape = reshape(eq.L,glob.nf(1),glob.nf(2));
+density = sum(L_reshape,2);
+plot(density)
 
 %% Set up for Krussel-Smith
 
