@@ -324,22 +324,25 @@ mean(sd_new_prices(20:end))
 
 %% impluse responses
 
+% mean distribution over original simulation
+mean_L      = mean(paths.L(:,20:end),2);
+
 % distribution over idiosyncratic states
-L_sim       = zeros(length(eq.L),options.T);
-L_sim(:,1)  = eq.L;
+L_sim       = zeros(length(mean_L),options.T);
+L_sim(:,1)  = mean_L;
 
 % policy functions
-pol_sim     = zeros(length(eq.L),options.T-1);
-I_sim       = zeros(length(eq.L),options.T-1);
+pol_sim     = zeros(length(mean_L),options.T-1);
+I_sim       = zeros(length(mean_L),options.T-1);
 
 % initial price states
-p_state     = zeros(length(eq.L),options.T-1);
+p_state     = zeros(length(mean_L),options.T-1);
 
 % draw money growth shocks
 mt          = zeros(1,options.T);
 mt(1)       = param.mu;
 mt(2)       = mt(1);
-mt(3)       = mt(2) - param.sigmaeps;
+mt(3)       = mt(2) + param.sigmaeps;
 %rng(222);
 for t = 4:options.T;
     mt(t) = param.mu*(1-param.rhom) + param.rhom*mt(t-1);
@@ -368,7 +371,7 @@ for t = 2:options.T
 
     ylb    = 0.5*Y_sim(t-1);
     yub    = 1.5*Y_sim(t-1);
-%        Yin    = (1/2)*(ylb+yub);
+%   Yin    = (1/2)*(ylb+yub);
     Pin    = P_sim(t-1);
     Pout   = Pin;
 
@@ -418,7 +421,7 @@ for t = 2:options.T
     pol_sim(:,t)    = v.Pp;
     I_sim(:,t)      = v.Is;
     p_state(:,t)    = st(:,1).*(1/pi);
-%        Pin - Pout
+%   Pin - Pout
 
     % 9. Update distributions (is this right?)
     fspaceerg     = fundef({'spli',glob.pgridf,0,1});
@@ -427,6 +430,13 @@ for t = 2:options.T
     L_sim(:,t)    = dprod(glob.QA,Qp)'*L_sim(:,t-1);
 
 end
-    
-dev = Y_sim - Y_mean;
-plot(dev(1:12))
+
+% output gap
+dev_Y = (Y_sim - Y_mean)./Y_mean;
+plot(dev_Y(1:end-1))
+
+% inflation
+pi = P_sim(2:options.T-1)./P_sim(1:options.T-2);
+pi2 = paths.P(2:options.T-1)./paths.P(1:options.T-2);
+pi2_mean = mean(pi2(20:end));
+plot((pi(1:12)-pi2_mean)/pi2_mean)
