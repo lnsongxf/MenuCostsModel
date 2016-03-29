@@ -22,11 +22,11 @@ function [ v, Phi_pPA ] = valfunc_noagg(flag,cE,s,pPstar,Y,param,glob,options)
 
 switch flag
     case 'K'
-        PI        = menufun('PIK',s,[],[],Y,param,glob,options);
+        PI        = menufun_noagg('PIK',s,[],[],Y,param,glob,options);
         Phi = glob.Phi;
         v          = PI + param.beta*Phi*cE;
     case 'C'
-        PI        = menufun('PIC',s,pPstar,[],Y,param,glob,options);
+        PI        = menufun_noagg('PIC',s,pPstar,[],Y,param,glob,options);
         Phi_pP  = splibas(glob.pPgrid0,0,glob.spliorder(1),pPstar);
         Phi_pPA     = dprod(glob.Phi_A,Phi_pP);
         v          = PI + param.beta*Phi_pPA*cE;

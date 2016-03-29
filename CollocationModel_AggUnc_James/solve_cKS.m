@@ -34,16 +34,15 @@ totaltic    = tic;
 
 %% Compute forecast for output (In Simon's code this is prices)
 
-Y           = s(:,4);
 DM          = s(:,3);
 % X           = [ones(size(Y)),log(Y),log(DM)];
-% Ytmp           = exp(X*cKS);     % KS forecast for output
+% Y           = exp(X*cKS);     % KS forecast for output
 
 %% Bellman iteration
 for citer = (1:options.Nbell)
     glob.citer  = citer;
     % 1. Compute values;    
-    v           = solve_valfuncKS(cold,s,Y,param,glob,options); 
+    v           = solve_valfuncKS(cold,s,param,glob,options); 
     % 2. Update c
     cK          = glob.Phi\full(v.vK);      % Note: 'full' re-fills a sparse matrix for computations
     cC          = glob.Phi\full(v.vC);
@@ -65,7 +64,7 @@ end
 eq.flag.cconv = false;
 for citer = (1:options.Nnewt)
     % 1. Compute values
-    [v,jac]     = solve_valfuncKS(cold,s,Y,param,glob,options);
+    [v,jac]     = solve_valfuncKS(cold,s,param,glob,options);
     % 2. Update c 
     cKold       = cold(1:glob.Ns); 
     cCold       = cold(glob.Ns+1:2*glob.Ns);

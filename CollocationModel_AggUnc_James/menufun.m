@@ -1,4 +1,4 @@
-function out = menufun(flag,s,pPstar,ind,Y,param,glob,options)
+function out = menufun(flag,s,pPstar,ind,param,glob,options)
 %MENUFUN 
 %-------------------------------------------------
 %
@@ -35,21 +35,26 @@ switch flag
     case 'PIK'
         pP      = s(:,1);
         A       = s(:,2);
+        Y       = s(:,4);
         out = Y.*(pP).^(1-theta) - ...
             delta*Y.^sigma.*( (Y./A).^(1/alpha).*(pP).^(-theta/alpha) ).^(1+phielas);
     case 'PIC'
         A       = s(:,2);
+        Y       = s(:,4);
         MenuCost = MCfun();
         out = Y.*(pPstar).^(1-theta) - ...
             delta*Y.^sigma.*( (Y./A).^(1/alpha).*(pPstar).^(-theta/alpha) + MenuCost ).^(1+phielas);      
     case 'output'
+        Y       = s(:,4);
         out       = Yfun(pPstar,Y);         % Firm's output 
     case 'labour'
         A         = s(:,2);
+        Y       = s(:,4);
         ystar     = Yfun(pPstar,Y);
         out       = Nfun(ystar, A, ind);    % Firm's labour demand
     case 'realwage'
         A         = s(:,2);
+        Y       = s(:,4);
         ystar     = Yfun(pPstar,Y);
         nstar     = Nfun(ystar, A, ind);       
         out       = Wfun(nstar,Y);          % Firm's real wage        

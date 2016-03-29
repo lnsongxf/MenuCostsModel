@@ -13,7 +13,6 @@ function [glob] = setup_agg(param,glob,cKS,options)
 %   - cKS       = Krussel Smith law of motion parameters: (lnY = b0 + b1lnY-1 + b2 Dm)
 %   - options   = options, including continuous vs. discrete Markov, Tauchen vs. Rouwenhurst, 
 %-------------------------------------------------
-
 %% State space for idiosyncratic productivity
 % One persistent shock  % [Np,Na,Nm,Ny]
 Na              = glob.n(2);
@@ -25,9 +24,9 @@ b2 = cKS(3);
 
 [Pa,agrid,Pssa]      = setup_MarkovZ(Na,param.sigzeta,param.rhoa,1);
 
-muvar = [param.mu*(1-param.rhom); b0 + b2*param.mu*(1-param.rhom)];
-Avar = [param.rhom, 0; b2*param.rhom, b1];
-Svar = [param.sigmaeps; b2*param.sigmaeps];
+muvar   = [param.mu*(1-param.rhom); b0 + b2*param.mu*(1-param.rhom)];
+Avar    = [param.rhom, 0; b2*param.rhom, b1];
+Svar    = [param.sigmaeps; b2*param.sigmaeps];
 [tmpgrid,Pmy,Pssmy]              = tauchenvar([Nm; Ny],muvar,Avar,Svar);
 Pmy = Pmy';     % Make sure rows sum to one
 Mgrid = exp(unique(tmpgrid(1,:)))'; % Take D(ln(M_t)) back to DM_t
@@ -53,8 +52,8 @@ s               = gridmake(sgrid);
 Ns              = size(s,1);
 
 %% Reconstruct grids after fspace added points for the spline (adds two knot points for cubic spline)
-pPgrid = sgrid{1};  %s(s(:,2)==s(1,2),1); 
-agrid = sgrid{2};   % s(s(:,1)==s(1,1),2);
+pPgrid = sgrid{1};  
+agrid = sgrid{2};   
 Mgrid = sgrid{3};
 Ygrid = sgrid{4};
 
@@ -64,7 +63,7 @@ Nm = size(Mgrid,1);
 Ny = size(Ygrid,1);
 
 %% Compute expectations matrix
-Phi        = funbas(fspace,s);
+glob.Phi        = funbas(fspace,s);
 H          = kron(ones(1,Ns),kron(speye(Ny),ones(NpP*Na*Nm,Ny*Nm)));
 glob.H     = bsxfun(@rdivide,H,sum(H,2));    % Normalize rows of H to sum to one
 glob.Emat  = kron(kron(Pmy,Pa),speye(NpP));
@@ -82,6 +81,7 @@ glob.pPgridf     = pPgridf;
 glob.agridf     = agridf;
 glob.sf         = sf;
 glob.Nsf        = Nsf;
+glob.Phif       =funbas(fspace,sf);
 
 %% Compute QA matrix for approximation of stationary distribution
 glob.QA         = kron(Pa,ones(NpPf,1)); 
@@ -89,28 +89,15 @@ glob.QA         = kron(Pa,ones(NpPf,1));
 %% Create basis matrices (need only compute once)
 glob.Phi_A      = splibas(agrid0,0,spliorder(2),s(:,2));        % Used in Bellman / Newton computing expected values
 glob.Phi_Af     = splibas(agrid0,0,spliorder(2),sf(:,2));       % Used when solving on fine grid
-Phi_pP          = splibas(pPgrid0,0,spliorder(1),s(:,1));       % Basis matrix for price grid
-Phi_pPf         = splibas(pPgrid0,0,spliorder(1),sf(:,1));      % Used when solving on fine grid
 glob.Phi_M      = splibas(Mgrid0,0,spliorder(3),s(:,3));        % Used in Bellman / Newton computing expected values
 glob.Phi_Mf     = splibas(Mgrid0,0,spliorder(3),sf(:,3));        % Used in Bellman / Newton computing expected values
 glob.Phi_Y      = splibas(Ygrid0,0,spliorder(4),s(:,4));        % Used in Bellman / Newton computing expected values
 glob.Phi_Yf     = splibas(Ygrid0,0,spliorder(4),sf(:,4));        % Used in Bellman / Newton computing expected values
 
-% [Np,Na,Nm,Ny] --> Work backwards inside the dprod function
-glob.Phi        = dprod(glob.Phi_Y,dprod(glob.Phi_M,dprod(glob.Phi_A,Phi_pP)));                     % Used in Bellman / Newton updating of c
-glob.Phif        = dprod(glob.Phi_Yf,dprod(glob.Phi_Mf,dprod(glob.Phi_Af,Phi_pPf)));                  % Used when solving on fine grid
-
-% Note, we don't need to put aggregate states on a fine grid.
-
 %% Create the more complicated basis matrix: 
 % Phi(s1 kron Ygrid.^-1 kron Ygrid' kron Mgrid'.^-1, s kron i_{NyNyNm) )
 s_prime = [kron(kron(kron(s(:,1), Ygrid.^(-1)), Ygrid), Mgrid.^(-1)), kron(s(:,2:end), ones(Ny*Ny*Nm,1))];
-Phi_pPprime  = splibas(pPgrid0,0,spliorder(1),s_prime(:,1));       % Basis matrix for price grid
-Phi_Aprime   = splibas(agrid0,0,spliorder(2),s_prime(:,2));        % Used in Bellman / Newton computing expected values
-Phi_Mprime   = splibas(Mgrid0,0,spliorder(3),s_prime(:,3));        % Used in Bellman / Newton computing expected values
-Phi_Yprime   = splibas(Ygrid0,0,spliorder(4),s_prime(:,4));        % Used in Bellman / Newton computing expected values
-% [Np,Na,Nm,Ny] --> Work backwards inside the dprod function
-glob.Phiprime        = dprod(Phi_Yprime, dprod(Phi_Mprime, dprod(Phi_Aprime, Phi_pPprime)));       
+glob.Phiprime        = funbas(fspace,s_prime);
 
 %% Declare additional global variables
 glob.pPgrid0    = pPgrid0;          % unique elements of pP grid

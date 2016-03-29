@@ -91,6 +91,7 @@ end
 % Solve again on a finer grid for pP
 glob.Phi_A      = glob.Phi_Af; 
 glob.Phi        = glob.Phif; 
+glob.Phiprime   = glob.Phiprimef; 
 v               = solve_valfunc_noagg(c,sf,Y,param,glob,options,1);
 
 % Compute stationary distribution
@@ -124,7 +125,7 @@ end
 
 % Plot stationary distribution
 if strcmp(options.plotSD,'Y');
-    H = figure(888);
+    H = figure(options.fignum);
     %     set(H,'Pos',[1          35        1920         964]);
     JpP  = numel(glob.pPgridf);
     Ja  = numel(glob.agridf);
@@ -191,7 +192,7 @@ if strcmp(options.plotpolicyfun,'Y')
     nstar  = reshape(v.nstar, length(glob.pPgridf), length(glob.agridf)); 
     wPstar = reshape(v.wPstar, length(glob.pPgridf), length(glob.agridf));
     
-    figure
+    figure('units','normalized','outerposition',[0 0 1 1])
     subplot(2,3,1)
     plot(glob.pPgridf, valtot)
     xlabel('Real price','fontsize',options.fontsize)

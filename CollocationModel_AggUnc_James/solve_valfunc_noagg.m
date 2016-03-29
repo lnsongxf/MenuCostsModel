@@ -26,7 +26,7 @@ cE = c(2*end/3+1:end);
 vK = valfunc_noagg('K',cE,s,[],Y,param,glob,options);
 
 %% Value function when changing price
-B                       = menufun('bounds',s,[],[],Y,param,glob,options); 
+B                       = menufun_noagg('bounds',s,[],[],Y,param,glob,options); 
 obj                     = @(pPstar)valfunc_noagg('C',cE,s,pPstar,Y,param,glob,options);
 pPstar                  = goldenx(obj,B(:,1),B(:,2));
 [vC, Phi_pPA] = valfunc_noagg('C',cE,s,pPstar,Y,param,glob,options);
@@ -62,9 +62,9 @@ v.vE        = vE;
 v.pPstar    = pPstar;   % optimal price if changing at given state
 v.pPdist    = pPdist;   % distribution of prices across changers and non-changers
 v.ind       = ind;      % Who did/didn't change prices
-v.ystar     = menufun('output',s,pPdist,ind,Y,param,glob,options);  % Use dist, because want values at *actual* prices, not optimal if they were changing
-v.nstar     = menufun('labour',s,pPdist,ind,Y,param,glob,options);
-v.wPstar    = menufun('realwage',s,pPdist,ind,Y,param,glob,options);
+v.ystar     = menufun_noagg('output',s,pPdist,ind,Y,param,glob,options);  % Use dist, because want values at *actual* prices, not optimal if they were changing
+v.nstar     = menufun_noagg('labour',s,pPdist,ind,Y,param,glob,options);
+v.wPstar    = menufun_noagg('realwage',s,pPdist,ind,Y,param,glob,options);
 
 
 

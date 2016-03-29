@@ -1,4 +1,4 @@
-function [v,Phi_pPAMY] = valfuncKS(flag,cE,s,pPstar,Y,param,glob,options)
+function [v,Phi_pPAMY] = valfuncKS(flag,cE,s,pPstar,param,glob,options)
 %VALFUNC gives value function value given parameters, states
 %-------------------------------------------------
 %   Computes the the value function
@@ -19,12 +19,12 @@ switch flag
     case 'K'
         
         % Compute flow payoff
-        PI              = menufun('PIK',s,[],[],Y,param,glob,options);
+        PI              = menufun('PIK',s,[],[],param,glob,options);       
         Phi             = glob.Phi;
         v               = PI + param.beta*Phi*cE;
         
     case 'C'
-        PI              = menufun('PIC',s,pPstar,[],Y,param,glob,options);
+        PI              = menufun('PIC',s,pPstar,[],param,glob,options);
         
         % Create basis matrices for continuation value
         Phi_pP          = splibas(glob.pPgrid0,0,glob.spliorder(1),pPstar);

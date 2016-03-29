@@ -16,12 +16,12 @@ function [glob] = setup_noagg(param,glob,options)
 
 %% State space for idiosyncratic productivity
 % One persistent shock
-Na              = glob.n(2);
+Na = glob.n(2);
 switch options.discmethod
     case 'R'
         [P,agrid,Pssa]      = setup_MarkovZ(Na,param.sigzeta,param.rhoa,1);
     case 'T'
-        % INCLUDE TAUCHEN PROCESS HERE
+        
 end
 
 agrid0          = agrid;
@@ -41,19 +41,20 @@ s               = gridmake(sgrid);
 Ns              = size(s,1);
 
 %% Reconstruct grids after fspace added points for the spline (adds two knot points for cubic spline)
-pPgrid = sgrid{1};  %s(s(:,2)==s(1,2),1); 
-agrid = sgrid{2};   % s(s(:,1)==s(1,1),2);
-NpP              = size(pPgrid,1); 
-Na              = size(agrid,1);
+pPgrid  = sgrid{1};  
+agrid   = sgrid{2};  
+NpP     = size(pPgrid,1);
+Na      = size(agrid,1); 
+
 
 %% Compute expectations matrix
-Phi             = funbas(fspace,s);
+glob.Phi        = funbas(fspace,s);
 glob.Emat       = kron(P,speye(NpP));
 
 %% Construct fine grid for histogram
-pPgridf          = nodeunif(glob.nf(1),glob.pPmin.^glob.curv(1),glob.pPmax.^glob.curv(1)).^(1/glob.curv(1));
-NpPf             = size(pPgridf,1);
-agridf  = agrid;
+pPgridf         = nodeunif(glob.nf(1),glob.pPmin.^glob.curv(1),glob.pPmax.^glob.curv(1)).^(1/glob.curv(1));
+NpPf            = size(pPgridf,1);
+agridf          = agrid;
 Naf             = size(agridf,1);
 sf              = gridmake(pPgridf,agridf);
 Nsf             = size(sf,1);
@@ -62,6 +63,8 @@ glob.pPgridf     = pPgridf;
 glob.agridf     = agridf;
 glob.sf         = sf;
 glob.Nsf        = Nsf;
+glob.Phif       = funbas(fspace,sf);
+
 
 %% Compute QA matrix for approximation of stationary distribution
 glob.QA         = kron(P,ones(NpPf,1)); 
@@ -69,20 +72,12 @@ glob.QA         = kron(P,ones(NpPf,1));
 %% Create basis matrices (need only compute once)
 glob.Phi_A      = splibas(agrid0,0,spliorder(2),s(:,2));        % Used in Bellman / Newton computing expected values
 glob.Phi_Af     = splibas(agrid0,0,spliorder(2),sf(:,2));       % Used when solving on fine grid
-Phi_pP          = splibas(pPgrid0,0,spliorder(1),s(:,1));       % Basis matrix for price grid
-Phi_pPf         = splibas(pPgrid0,0,spliorder(1),sf(:,1));       % Used when solving on fine grid
-glob.Phi        = dprod(glob.Phi_A,Phi_pP);                     % Used in Bellman / Newton updating of c
-glob.Phif       = dprod(glob.Phi_Af,Phi_pPf);                     % Used when solving on fine grid
 
 %% Create the basis matrix adjusting for SS money growth/price inflation
 s_prime = [s(:,1)*(1/exp(param.mu)), s(:,2)];
-Phi_pPprime  = splibas(pPgrid0,0,spliorder(1),s_prime(:,1));       % Basis matrix for price grid
-Phi_Aprime   = splibas(agrid0,0,spliorder(2),s_prime(:,2));        % Used in Bellman / Newton computing expected values
-Phi_Mprime   = splibas(Mgrid0,0,spliorder(3),s_prime(:,3));        % Used in Bellman / Newton computing expected values
-Phi_Yprime   = splibas(Ygrid0,0,spliorder(4),s_prime(:,4));        % Used in Bellman / Newton computing expected values
-% [Np,Na,Nm,Ny] --> Work backwards inside the dprod function
-glob.Phiprime        = dprod(Phi_Yprime, dprod(Phi_Mprime, dprod(Phi_Aprime, Phi_pPprime)));       
-
+s_primef = [sf(:,1)*(1/exp(param.mu)), sf(:,2)];
+glob.Phiprime        = funbas(fspace,s_prime);      
+glob.Phiprimef       = funbas(fspace,s_primef);      
 
 %% Declare additional global variables
 glob.pPgrid0    = pPgrid0;          % unique elements of pP grid
@@ -96,6 +91,9 @@ glob.NpP        = NpP;              % length of state space grid for pP
 glob.fspace     = fspace;           % function space object for the model
 glob.s          = s;                % full state space 
 glob.Ns         = Ns;               % size of full state space
+glob.s_prime    = s_prime;          % Adjusted for SS inflation
+
+
 
 end
 
