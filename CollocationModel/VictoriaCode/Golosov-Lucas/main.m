@@ -14,7 +14,7 @@ cd '/Users/victoriagregory/Dropbox/MenuCostsModel/CollocationModel/VictoriaCode/
 %% Settings
 
 % What to solve for
-options.solvepL     = 'Y';      % Solve for p and L given a Y 
+options.solvexL     = 'Y';      % Solve for p and L given a Y 
 options.solveeq     = 'Y';      % Solve equilibrium
 options.solveKS     = 'Y';      % Solve Krussel-Smith
 
@@ -28,11 +28,11 @@ options.tolL        = 1e-11;    % Tolerance on L
 
 % Set-up for state space
 glob.n          = [10,5];       % Number of nodes in each dimension
-glob.nf         = [300,5];      % Number of points for p and nu in histogram L
-glob.curv       = 1;            % Grid curvature for p on (0,1] (1 is no curvature)
+glob.nf         = [300,5];      % Number of points for x and nu in histogram L
+glob.curv       = 1;            % Grid curvature for x on (0,1] (1 is no curvature)
 glob.spliorder  = [3,1];        % Order of splines (always use linear if shocks are discrete (not AR1))
-glob.pmin       = 0.75;         % Lower bound on p
-glob.pmax       = 1.50;         % Upper bound on p
+glob.xmin       = exp(-0.4);    % Lower bound on x
+glob.xmax       = exp(0.5);     % Upper bound on x
 
 % NOTE (VG): resulting k grid will be n(1)+spliorder(1)-1
 % Creating the cubic spline space adds 3-1=2 points.
@@ -52,3 +52,32 @@ param.beta      = exp(-param.R);
 
 % Print / plot 
 options.print       = 'Y';      % Print out c-solution convergence
+
+%% Setup problem
+fprintf('Setup\n');
+[param,glob]    = setup_ss(param,glob,options);      
+fprintf('Setup complete\n');
+
+%% Solve only x and L for a given cbar
+switch options.solvexL
+    case 'Y'
+        cbar                = 0.35;      % Conjectured value of cbar    
+        options.cresult     = [];     % Holds previous solution for c. Empty in this case.
+        eq                  = solve_xL(cbar,param,glob,options);  
+        fprintf('cbarin = %1.2f,\tcbarout = %1.2f\n',cbar,eq.cbar);
+end
+
+%% Solve equilibrium
+switch options.solveeq
+    case 'Y'
+        options.tolcbar     = 0.0001;           % Tolerance on cbar
+        options.cbarlb      = 0.1;              % cbar lower bound
+        options.cbarub      = 1;                % cbar upper boud
+        options.itermaxcbar = 30;               % Max iterations of bisection
+        options.eqplot      = 'Y'; 
+        options.eqprint     = 'Y'; 
+        options.print       = 'N';
+        options.Loadc       = 'Y';              % For new guess of cbar use old c as starting guess
+        options.plotSD      = 'N';              % If Y plot steady state distribution
+        eq                  = solve_eq(param,glob,options); 
+end
