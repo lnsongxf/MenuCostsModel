@@ -2,7 +2,7 @@ function [v,jac] = solve_valfunc_menucost(ce,s,Y,param,glob,options)
 %__________________________________________________________________________
 % First, use golden search to solve for price if the firm changes (Pc): 
 obj                     = @(pc)valfuncchange(ce,s,pc,Y,param,glob,options);
-Pc                      = goldenx(obj,ones(size(s,1),1)*0,ones(size(s,1),1)*5);
+Pc                      = goldenx(obj,ones(size(s,1),1)*min(glob.pgrid),ones(size(s,1),1)*max(glob.pgrid));
 % vc is the value if the firm changes:
 [vc,Phi_PcA]          = valfuncchange(ce,s,Pc,Y,param,glob,options);
 
