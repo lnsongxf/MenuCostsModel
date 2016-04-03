@@ -35,7 +35,6 @@ for tt = (1:options.itermaxp)
     Youtvec(tt)     = eq.Y;
     if strcmp(options.eqprint,'Y') 
         fprintf('%2i. Yin:\t%2.4f\tYout:\t%2.4f\tt:%2.1f\n',tt,Y,eq.Y,toc(tictic));
-%         fprintf('%2i. Pin:\t%2.4f\tPout:\t%2.4f\tt:%2.1f\n',tt,1,eq.P,toc(tictic));
     end
     % 4. Set all flags
     d               = Yinvec-Youtvec;

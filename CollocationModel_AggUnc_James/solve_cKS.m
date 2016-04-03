@@ -18,26 +18,6 @@ function [c,v] = solve_cKS(cold,cKS,param,glob,options)
 s           = glob.s;
 totaltic    = tic;
 
-%% Compute Emat (expectations matrix on total state space)
-% Simply run setup again but with different law of motion parameters.
-% Do this because all of the infrastructure is inside the setup file: with
-% different cKS params, we compute the new Tauchen VAR for (dM, Y), update
-% the state space, construct new expectations matrices, etc. 
-
-% fprintf('Setup\n');
-% [param,glob] = setup(param,glob,cKS,options);    
-% fprintf('Setup complete\n');
- 
-
-% NOTE: May need to write this out individually since the new expectations
-% matrices are actually created in the calling function 'solve_KS'...
-
-%% Compute forecast for output (In Simon's code this is prices)
-
-DM          = s(:,3);
-% X           = [ones(size(Y)),log(Y),log(DM)];
-% Y           = exp(X*cKS);     % KS forecast for output
-
 %% Bellman iteration
 for citer = (1:options.Nbell)
     glob.citer  = citer;
@@ -66,9 +46,9 @@ for citer = (1:options.Nnewt)
     % 1. Compute values
     [v,jac]     = solve_valfuncKS(cold,s,param,glob,options);
     % 2. Update c 
-    cKold       = cold(1:glob.Ns); 
-    cCold       = cold(glob.Ns+1:2*glob.Ns);
-    cEold       = cold(2*glob.Ns+1:end);
+    cKold       = cold(1:end/3);  
+    cCold       = cold(end/3+1:2*end/3);
+    cEold       = cold(2*end/3+1:end);
     c           = cold - jac\([glob.Phi*cKold - full(v.vK) ;
                                glob.Phi*cCold - full(v.vC) ;
                                glob.Phi*cEold - full(v.vE)]);  

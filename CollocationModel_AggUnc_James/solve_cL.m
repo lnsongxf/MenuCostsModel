@@ -41,7 +41,6 @@ totaltic    = tic;
 for citer = (1:options.Nbell)
     glob.citer  = citer;
     % 1. Compute values;
-    
     v           = solve_valfunc_noagg(cold,s,Y,param,glob,options); 
     % 2. Update c
     cK          = glob.Phi\full(v.vK);      % Note: 'full' re-fills a sparse matrix for computations
@@ -95,9 +94,9 @@ glob.Phiprime   = glob.Phiprimef;
 v               = solve_valfunc_noagg(c,sf,Y,param,glob,options,1);
 
 % Compute stationary distribution
-pPstar           = min(v.pPstar,max(pPgrid));
+pPdist           = min(v.pPdist,max(pPgrid));
 fspaceergpP      = fundef({'spli',glob.pPgridf,0,1});
-QpP              = funbas(fspaceergpP,pPstar);
+QpP              = funbas(fspaceergpP,pPdist);
 QA              = glob.QA;
 Q               = dprod(QA,QpP);
 
@@ -123,7 +122,19 @@ for itL = (1:options.itermaxL);
     L       = Lnew;
 end
 
-% Plot stationary distribution
+%% Compute aggregates and implied p
+P = ( L'*(pPdist).^(1-param.theta) )^(1/(1-param.theta));
+Ynew = 1/P;
+
+%% Pack-up output
+eq.v    = v;
+eq.c    = c;
+eq.P    = P;
+eq.Y    = Ynew;
+eq.L    = L;
+eq.Q    = Q;
+
+%% Plot stationary distribution
 if strcmp(options.plotSD,'Y');
     H = figure(options.fignum);
     %     set(H,'Pos',[1          35        1920         964]);
@@ -162,18 +173,6 @@ if strcmp(options.plotSD,'Y');
     
 end
 
-% Compute aggregates and implied p
-P = ( pPstar'.^(1-param.theta)*L )^(1/(1-param.theta));
-
-Ynew = 1/P;
-
-%% Pack-up output
-eq.v    = v;
-eq.c    = c;
-eq.P    = P;
-eq.Y    = Ynew;
-eq.L    = L;
-eq.Q    = Q;
 
 %% Plot value functions, other policy functions 
 

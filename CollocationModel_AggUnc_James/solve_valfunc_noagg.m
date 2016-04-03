@@ -31,11 +31,9 @@ obj                     = @(pPstar)valfunc_noagg('C',cE,s,pPstar,Y,param,glob,op
 pPstar                  = goldenx(obj,B(:,1),B(:,2));
 [vC, Phi_pPA] = valfunc_noagg('C',cE,s,pPstar,Y,param,glob,options);
 
-ind = (vK > vC);    % Indicator for when value of keeping price is larger than changing price
-ind = double(ind);
+ind = double((vK > vC));    % Indicator for when value of keeping is larger than changing price
 
-pP = s(:,1);
-pPdist = ind.*pP + (1-ind).*pPstar;    % distribution of real prices given state vector
+pPdist = ind.*s(:,1) + (1-ind).*pPstar;    % distribution of real prices given state vector
 
 
 %% Compute vE and jacobian if requested
@@ -45,6 +43,8 @@ if (nargin<=6)
     vE = glob.Emat*(dprod(ind, glob.Phiprime)*cK + dprod((1-ind), glob.Phiprime)*cC);
 end
 
+% VIC DIFF: victoria computes the Phi matrix here again as
+% funbas(glob.fspace,s). 
 if (nargout==2)
     jac = [ glob.Phi,                               zeros(glob.Ns),          -param.beta*glob.Phi;
           zeros(glob.Ns),                        glob.Phi,                   -param.beta*Phi_pPA ;
@@ -62,7 +62,7 @@ v.vE        = vE;
 v.pPstar    = pPstar;   % optimal price if changing at given state
 v.pPdist    = pPdist;   % distribution of prices across changers and non-changers
 v.ind       = ind;      % Who did/didn't change prices
-v.ystar     = menufun_noagg('output',s,pPdist,ind,Y,param,glob,options);  % Use dist, because want values at *actual* prices, not optimal if they were changing
+v.ystar     = menufun_noagg('output',s,pPdist,ind,Y,param,glob,options);  % Use dist, because want values at *actual* prices
 v.nstar     = menufun_noagg('labour',s,pPdist,ind,Y,param,glob,options);
 v.wPstar    = menufun_noagg('realwage',s,pPdist,ind,Y,param,glob,options);
 

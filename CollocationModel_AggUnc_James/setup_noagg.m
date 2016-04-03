@@ -49,7 +49,8 @@ Na      = size(agrid,1);
 
 %% Compute expectations matrix
 glob.Phi        = funbas(fspace,s);
-glob.Emat       = kron(P,speye(NpP));
+glob.Emat       = kron(P,speye(NpP));  
+% VIC DIFF: She multiplies by Phi here, while I don't.
 
 %% Construct fine grid for histogram
 pPgridf         = nodeunif(glob.nf(1),glob.pPmin.^glob.curv(1),glob.pPmax.^glob.curv(1)).^(1/glob.curv(1));
@@ -74,10 +75,13 @@ glob.Phi_A      = splibas(agrid0,0,spliorder(2),s(:,2));        % Used in Bellma
 glob.Phi_Af     = splibas(agrid0,0,spliorder(2),sf(:,2));       % Used when solving on fine grid
 
 %% Create the basis matrix adjusting for SS money growth/price inflation
-s_prime = [s(:,1)*(1/exp(param.mu)), s(:,2)];
-s_primef = [sf(:,1)*(1/exp(param.mu)), sf(:,2)];
-glob.Phiprime        = funbas(fspace,s_prime);      
-glob.Phiprimef       = funbas(fspace,s_primef);      
+% VIC DIFF: Because she solves for expected value function, her Phi matrix is ALWAYS adjusted
+% by the new state. 
+
+s_prime         = [s(:,1)*(1/exp(param.mu)), s(:,2)];
+s_primef        = [sf(:,1)*(1/exp(param.mu)), sf(:,2)];
+glob.Phiprime   = funbas(fspace,s_prime);      
+glob.Phiprimef  = funbas(fspace,s_primef);      
 
 %% Declare additional global variables
 glob.pPgrid0    = pPgrid0;          % unique elements of pP grid

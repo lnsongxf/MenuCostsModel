@@ -56,7 +56,7 @@ Nm              = size(mgrid,1);
 
 % inflation grid
 yypmp       = gridmake(Ygrid, Ygrid, exp(mgrid));
-pigrid      = yypmp(:,3) - log(yypmp(:,2)) + log(yypmp(:,1));
+pigrid      = yypmp(:,3) - log(yypmp(:,2)) + log(yypmp(:,1));    % Sure this is right? 
 Npi         = Ny*Ny*Nm;
 
 % Form the matrix that determines whether you can transit from:

@@ -36,11 +36,11 @@ agrid0 = agrid;
 Mgrid0 = Mgrid;
 Ygrid0 = Ygrid;
 %% State space for endogenous variable pP
-NpP              = glob.n(1);
+NpP             = glob.n(1);
 curv            = glob.curv;
 spliorder       = glob.spliorder;
-pPgrid           = nodeunif(NpP,glob.pPmin.^curv(1),glob.pPmax.^curv(1)).^(1/curv(1));  % Adds curvature
-pPgrid0          = pPgrid;    % Save for computing basis matrices in valfunc.m:line9
+pPgrid          = nodeunif(NpP,glob.pPmin.^curv(1),glob.pPmax.^curv(1)).^(1/curv(1));  % Adds curvature
+pPgrid0         = pPgrid;    % Save for computing basis matrices in valfunc.m:line9
 
 %% Function space and nodes (fspace adds knot points for cubic splines)
 fspace          = fundef({'spli',pPgrid,0,spliorder(1)},...
@@ -52,32 +52,32 @@ s               = gridmake(sgrid);
 Ns              = size(s,1);
 
 %% Reconstruct grids after fspace added points for the spline (adds two knot points for cubic spline)
-pPgrid = sgrid{1};  
-agrid = sgrid{2};   
-Mgrid = sgrid{3};
-Ygrid = sgrid{4};
+pPgrid      = sgrid{1};  
+agrid       = sgrid{2};   
+Mgrid       = sgrid{3};
+Ygrid       = sgrid{4};
 
-NpP = size(pPgrid,1); 
-Na = size(agrid,1);
-Nm = size(Mgrid,1);
-Ny = size(Ygrid,1);
+NpP         = size(pPgrid,1); 
+Na          = size(agrid,1);
+Nm          = size(Mgrid,1);
+Ny          = size(Ygrid,1);
 
 %% Compute expectations matrix
-glob.Phi        = funbas(fspace,s);
-H          = kron(ones(1,Ns),kron(speye(Ny),ones(NpP*Na*Nm,Ny*Nm)));
-glob.H     = bsxfun(@rdivide,H,sum(H,2));    % Normalize rows of H to sum to one
-glob.Emat  = kron(kron(Pmy,Pa),speye(NpP));
+glob.Phi    = funbas(fspace,s);
+H           = kron(ones(1,Ns),kron(speye(Ny),ones(NpP*Na*Nm,Ny*Nm)));
+glob.H      = bsxfun(@rdivide,H,sum(H,2));    % Normalize rows of H to sum to one
+glob.Emat   = kron(kron(Pmy,Pa),speye(NpP));
 
 
 %% Construct fine grid for histogram
-pPgridf          = nodeunif(glob.nf(1),glob.pPmin.^glob.curv(1),glob.pPmax.^glob.curv(1)).^(1/glob.curv(1));
-NpPf             = size(pPgridf,1);
-agridf  = agrid;
+pPgridf         = nodeunif(glob.nf(1),glob.pPmin.^glob.curv(1),glob.pPmax.^glob.curv(1)).^(1/glob.curv(1));
+NpPf            = size(pPgridf,1);
+agridf          = agrid;
 Naf             = size(agridf,1);
 sf              = gridmake(pPgridf,agridf,Mgrid,Ygrid);
 Nsf             = size(sf,1);
 
-glob.pPgridf     = pPgridf;
+glob.pPgridf    = pPgridf;
 glob.agridf     = agridf;
 glob.sf         = sf;
 glob.Nsf        = Nsf;
@@ -111,7 +111,7 @@ glob.Ygrid      = Ygrid;            % full state space for a grid
 glob.Pa         = Pa;              % transition probability matrix for a
 glob.Pssa       = Pssa;             % stationary distribution for a
 glob.Pmy        = Pmy;              % transition probability matrix for M,Y
-glob.Pssa       = Pssmy;             % stationary distribution for M,Y
+glob.Pssmy       = Pssmy;            % stationary distribution for M,Y
 glob.Na         = Na;               % length of state space grid for a 
 glob.NpP        = NpP;              % length of state space grid for pP
 glob.Nm         = Nm;               % length of state space grid for M 
