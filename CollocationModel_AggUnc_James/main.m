@@ -34,12 +34,12 @@
 
 %% 
 % Add CompEcon package
-% p = genpath('E:\Dropbox\Economics\Matlab_codes\CompEcon');
-p = genpath('C:\Users\James\Dropbox\Economics\Matlab_codes\CompEcon');
+p = genpath('E:\Dropbox\Economics\Matlab_codes\CompEcon');
+% p = genpath('C:\Users\James\Dropbox\Economics\Matlab_codes\CompEcon');
 addpath(p);
 
-% cd('E:\Dropbox\Economics\2015_2016_material\AdvMacro_Midrigan\TermPaper\MenuCostsModel\CollocationModel_AggUnc_James')
-cd('C:\Users\James\Dropbox\economics\2015_2016_material\AdvMacro_Midrigan\TermPaper\MenuCostsModel\CollocationModel_AggUnc_James')
+cd('E:\Dropbox\Economics\2015_2016_material\AdvMacro_Midrigan\TermPaper\MenuCostsModel\CollocationModel_AggUnc_James')
+% cd('C:\Users\James\Dropbox\economics\2015_2016_material\AdvMacro_Midrigan\TermPaper\MenuCostsModel\CollocationModel_AggUnc_James')
 
 clear
 clc
@@ -47,7 +47,7 @@ clc
 %% Set all options
 
 % Things to do
-options.solvecL       = 'Y';      % Solve only c and L 
+options.solvecL       = 'Y';      % Solve only coefficients c and stationary dist L 
 options.solveeq       = 'Y';      % Solve equilibrium (not if agg uncertainty)
 
 options.polfun      = 'Y';      % 
@@ -67,14 +67,15 @@ options.solveKS = 'Y';          % Solve Krussel Smith step
 
 
 % Tolerances, iterations
-options.Nbell       = 5;        % Number of Bellman (Contraction) iterations
-options.Nnewt       = 25;       % Maximum number of Newton steps
+options.Nbell       = 2;        % Number of Bellman (Contraction) iterations
+options.Nnewt       = 15;       % Maximum number of Newton steps
 options.tolc        = 1e-8;     % Tolerance on value functions
-options.tolgolden   = 1e-8;     % Tolerance for golden search
+options.tolgolden   = 1e-6;     % Tolerance for golden search
 options.itermaxL    = 5000;     % Maximum iterations to find stationary dist L
 options.tolL        = 1e-11;    % Tolerance on L
 options.tolYeq      = 1e-6;    % Tolerance for eqm Y in no agg uncertainty 
 options.tolYks      = 1e-2;    % Tolerance for eqm Y in KS step
+options.KSsim       = 5;        % Number of KS simulations
 
 % For computation of equilibrium
 options.Ylb         = 0.5;              % Output lower bound
@@ -121,7 +122,6 @@ param.sigmaeps  = 0.0048;   % stddev of money growth shocks
  %% NO AGGREGATE UNCERTAINTY
 
 % Setup no aggregate uncertainty problem
-options.agguncertainty = 'N';
 fprintf('Setup\n');
 glob = setup_noagg(param,glob,options);
 fprintf('Setup complete\n');
@@ -142,16 +142,16 @@ end
 %% Solve equilibrium
 if strcmp(options.solveeq,'Y');
     options.tolp            = 0.0001;           % Tolerance on price
-    options.Ylb             = 0.5;              % Output lower bound
-    options.Yub             = 10;               % Output upper boud
+    options.Ylb             = 0.1;              % Output lower bound
+    options.Yub             = 5;               % Output upper boud
     options.itermaxp        = 30;               % Max iterations of bisection
     options.eqplot          = 'Y';
     options.eqprint         = 'Y';
     options.print           = 'N';
     options.Loadc           = 'Y';              % For new guess of p use old c as starting guess
     options.plotSD          = 'Y';              % If Y plot steady state distribution
-    options.fontsize        = 12;
     options.plotpolicyfun   = 'N';            % If Y, plot policy functions
+    options.fontsize        = 12;
     eq                      = solve_eq(param,glob,options);
 end
 
@@ -223,89 +223,125 @@ legend('Optimal','Upper bound','Lower bound')
 
 close all
 glob.damp           = 0.5;
-options.burn        = 20;
-options.simplot     = 'Y';
+options.burn        = 10;
+options.simplot     = 'N';
 options.eqprint     = 'N';
-options.seed        = 'Y';      % Ensures same simulation path each time
+options.seed        = 'N';      % Ensures same simulation path each time
 options.T           = 96; 
 options.T_KSiter    = 25;       % simulations for computing forecasting coeffs
 options.tolKS       = 0.01;    %1e-2;
-cKS                 = [0.001; 0.5; 0.1]; % Initialize KS coeffs
-
-% Solve Krussel-Smith step
+cKS0                 = [0.001; 0.5; 0.1]; % Initialize KS coeffs
+options.KSsim       = 1;  
 for KSiter = 1:options.T_KSiter
     
-    [DMt,Yt,~] = solve_KS(cKS,eq,param,glob,options);
-    DMt         = DMt(options.burn+1:end);
-    Yt          = Yt(options.burn+1:end);
-
-    % Regression step
-    Xt = [ones(length(DMt)-1,1), log(Yt(1:end-1)), log(DMt(2:end))];   % Still not sure about timing of DM
-    beta = (Xt'*Xt)^(-1)*(Xt'*log(Yt(2:end)));
-    resid = log(Yt(2:end)) - Xt*beta;
-    Rsquared = 1 - sum(resid.^2)/sum( (log(Yt(2:end)) - mean(log(Yt(2:end)))).^2);
-    % Updating coefficients
-    cKSnew = glob.damp*cKS + (1-glob.damp)*beta;
+    [c,v,cKS,R2,sim] = solve_KS(cKS0,eq,param,glob,options);
+    
+    cKSnew = glob.damp*cKS0 + (1-glob.damp)*mean(cKS,2);
     
     fprintf('----------------\n') 
-    fprintf('%2i. D(cKS) = %2.4f \n',KSiter,norm(cKSnew-cKS)/norm(cKS));
-    fprintf('%2i. R^2 = %2.4f \n',KSiter,Rsquared);
-    fprintf('%2i. b0 = %2.4f \n',KSiter,cKSnew(1));
-    fprintf('%2i. b1 = %2.4f \n',KSiter,cKSnew(2));
-    fprintf('%2i. b2 = %2.4f \n',KSiter,cKSnew(3));
+    fprintf('%2i. D(cKS) = %2.4f \n',KSiter,norm(cKSnew-cKS0)/norm(cKS0));
+    fprintf('R^2 = %2.4f \n',mean(R2));
+    fprintf('b0 = %2.4f \n',cKSnew(1));
+    fprintf('b1 = %2.4f \n',cKSnew(2));
+    fprintf('b2 = %2.4f \n',cKSnew(3));
     fprintf('----------------\n') 
     
     if norm(cKSnew-cKS)<options.tolKS
-        cKS = cKSnew;
-        fprintf('----------------\n')        
-        fprintf('Solved KS step\n')  
+        cKS0 = cKSnew;
+        fprintf('----------------\n')
+        fprintf('Solved KS step\n')
         fprintf('----------------\n')
         break
     end
     
-    cKS = cKSnew;
-
+    cKS0 = cKSnew;
 end
 
-glob.cKS   = cKS;
+cKS = cKS0;
 
 %% Simulate using the KS method
 
 options.simplot     = 'Y';
-options.irf =  'N';
+options.irf         =  'N';
+options.irf         = 'N';
+glob = setup_agg(param,glob,cKS,options);
 % Set starting point for Y = mean of Y from KS simulation 
-eq.Y = mean(Yt); 
-[DMt,Yt,Pt,Lt,ind,pPdist] = solve_KS(cKS,eq,param,glob,options);
-DMt         = DMt(options.burn+1:end);
-Yt          = Yt(options.burn+1:end);
-Pt          = Pt(options.burn+1:end);
-Lt          = Lt(:,options.burn+1:end);
-ind         = ind(:,options.burn+1:end);
-pPdist      = pPdist(:,options.burn+1:end);
+eq.Y = mean(sim.Yt); 
+[~,~,sim] = simulate_KS(c,v,eq,param,glob,options);
+
+sim.Yt           = Yt;
+sim.Pt           = Pt;   
+sim.Lt           = Lt;
+sim.ind          = ind;   
+sim.p_state      = p_state;
+sim.pPdist       = pPdist;
+sim.DMt          = DMt;
+sim.Mt           = Mt; 
+
+% inflation: mean and standard deviation
+pi      = sim.Pt(2:options.T)./sim.Pt(1:options.T-1)-1;
+pi_mean = mean(pi(options.burn:end));
+pi_std  = std(pi(options.burn:end));
+
+% standard deviation of individual (real) prices
+% (not controlling for weights)
+price_std = std(sim.pPdist(:,2:end),1);
+
+% price_changes
+price_change = sim.pPdist - sim.p_state;
+
+% mean price increase, sd new prices
+price_increase_ind      = (price_change>0);
+
+dist_pr_inc             = sim.Lt.*price_increase_ind;
+dist_pr_inc             = bsxfun(@rdivide, dist_pr_inc, sum(dist_pr_inc,1)); % Normalize columns to sum to 1
+
+log_price_increase      = log(price_change.*price_increase_ind);
+pr_log_price_increase   = log_price_increase.*dist_pr_inc;
+avg_log_price_increase  = nansum(pr_log_price_increase,1);
+mean(avg_log_price_increase(20:end))
+
+% frequency of price change
+dist_price_change       = bsxfun(@times,sim.Lt,sim.ind);
+freq_price_change       = sum(dist_price_change,1);
+mean_freq_price_change  = mean(freq_price_change(20:options.T));
+
+% standard deviation of new prices
+avg_price_t             = sum(bsxfun(@times,sim.Lt,log(sim.p_state)),1);
+prices_increased        = sim.p_state.*price_increase_ind;
+prices_increased(prices_increased==0)=NaN; 
+prices_increased        = log(prices_increased);
+log_dev_prices_inc      = bsxfun(@minus,prices_increased,avg_price_t);
+sd_new_prices           = nanstd(log_dev_prices_inc,1);
+mean(sd_new_prices(20:end))
+
+
+% Frequency of price change = 70%, seems high. Implied annual inflation is
+% ~2%, which is probably about right. 
 
 
 %% Plot IRFs
 
-options.irf =  'Y';
+options.irf         = 'Y';
 options.simplot     = 'Y';
 % Set starting point for Y = mean of Y from KS simulation 
-eq.Y = mean(Yt); 
-eq.L = mean(Lt,2);
-eq.pi = mean(Pt(2:end)./Pt(1:end-1));
-[DMt,Yt,Pt,Lt,ind,pPdist] = solve_KS(cKS,eq,param,glob,options);
+eq.Y = mean(sim.Yt); 
+eq.L = mean(sim.Lt,2);
+eq.pi = mean(sim.Pt(2:end)./sim.Pt(1:end-1));
+
+[~,~,sim] = simulate_KS(c,v,eq,param,glob,options);
+
 figure;
 subplot(3,1,1)
-plot(DMt - exp(param.mu));
+plot((sim.DMt(1:20) - exp(param.mu))/exp(param.mu)*100);
 title('\Delta M_t IRF')
 ylabel('% deviation from trend')
 subplot(3,1,2)
-plot(Yt-eq.Y);
+plot((sim.Yt(1:20)-eq.Y)/eq.Y*100);
 title('Y_t IRF')
 ylabel('% deviation from trend')
 subplot(3,1,3)
 % plot( Pt(1:end)./[eq.pi; Pt(1:end-1)]-eq.pi);
-  plot( Pt(2:end)./Pt(1:end-1)-eq.pi);
+  plot( (sim.Pt(2:20)./sim.Pt(1:20-1)-eq.pi)/eq.pi*100);
 title('\pi_t IRF')
 ylabel('% deviation from trend')
-
-

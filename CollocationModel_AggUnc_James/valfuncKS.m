@@ -1,4 +1,4 @@
-function [v,Phi_pPAMY] = valfuncKS(flag,cE,s,pPstar,param,glob,options)
+function [v,Phi_pPAMY] = valfuncKS(flag,cE,s,pP,param,glob,options)
 %VALFUNC gives value function value given parameters, states
 %-------------------------------------------------
 %   Computes the the value function
@@ -24,10 +24,10 @@ switch flag
         v               = PI + param.beta*Phi*cE;
         
     case 'C'
-        PI              = menufun('PIC',s,pPstar,[],param,glob,options);
+        PI              = menufun('PIC',s,pP,[],param,glob,options);
         
         % Create basis matrices for continuation value
-        Phi_pP          = splibas(glob.pPgrid0,0,glob.spliorder(1),pPstar);
+        Phi_pP          = splibas(glob.pPgrid0,0,glob.spliorder(1),pP);
         Phi_pPAMY       = dprod(glob.Phi_Y, dprod(glob.Phi_M, dprod(glob.Phi_A,Phi_pP)));
         
         % Compute value if changing

@@ -10,8 +10,8 @@ Date:           2/26/2016
 clear all;
 clc;
 dbstop if error;
-cd '/Users/victoriagregory/Dropbox/MenuCostsModel/CollocationModel/VictoriaCode'
-
+% cd '/Users/victoriagregory/Dropbox/MenuCostsModel/CollocationModel/VictoriaCode'
+cd('E:\Dropbox\Economics\2015_2016_material\AdvMacro_Midrigan\TermPaper\MenuCostsModel\CollocationModel\VictoriaCode')
 %% Settings
 
 % What to solve for
@@ -80,6 +80,19 @@ eq.L'*eq.v.Pp
 % plot(glob.sf(350:400,1)./(eq.Pa),eq.v.vf(350:400),glob.sf(350:400,1)./(eq.Pa),out(350:400))
 % legend('RHS','LHS')
 plot(glob.pgridf,eq.v.vf(1:500),glob.pgridf,eq.v.vf(501:1000),glob.pgridf,eq.v.vf(1001:1500),glob.pgridf,eq.v.vf(1501:2000))
+
+
+% valF = funbas(glob.fspace,glob.sf)*eq.c;
+% valF = reshape(valF, length(glob.pgridf), length(glob.agridf));
+% 
+% figure('units','normalized','outerposition',[0 0 1 1])
+% plot(glob.pgridf, valF)
+% xlabel('Real price','fontsize',12)
+% ylabel('Value','fontsize',12)
+% set(gca, 'fontsize', 12)
+% legend('a_1','a_2','a_3','a_4','a_5')
+
+
 
 %% Solve equilibrium
 switch options.solveeq
@@ -331,6 +344,7 @@ mean(sd_new_prices(20:end))
 
 % mean distribution over original simulation
 mean_L      = mean(paths.L(:,20:end),2);
+Y_mean      = mean(paths.Y(20:end));
 
 % distribution over idiosyncratic states
 L_sim       = zeros(length(mean_L),options.T);

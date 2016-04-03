@@ -23,37 +23,33 @@ cK = c(1:end/3);
 cC = c(end/3+1:2*end/3);
 cE = c(2*end/3+1:end); 
 
-%__________________________________________________________________________
 %% Solve problem 
 
 % Value function when keeping price
-vK = valfuncKS('K',cE,s,[],param,glob,options);
+vK              = valfuncKS('K',cE,s,[],param,glob,options);
 
 % Value function when changing price
-B                       = menufun('bounds',s,[],[],param,glob,options); 
-obj                     = @(pPstar) valfuncKS('C',cE,s,pPstar,param,glob,options);
-pPstar                  = goldenx(obj,B(:,1),B(:,2));
+B               = menufun('bounds',s,[],[],param,glob,options); 
+obj             = @(pPstar) valfuncKS('C',cE,s,pPstar,param,glob,options);
+pPstar          = goldenx(obj,B(:,1),B(:,2));
 [vC, Phi_pPAMY] = valfuncKS('C',cE,s,pPstar,param,glob,options);
 
-ind = (vK > vC);    % Indicator for when value of keeping price is larger than changing price
-ind = double(ind);  % Change from logical to double
-v.ind       = ind;  % Record who did/didn't change prices
+ind             = double((vK > vC));    % Indicator for when value of keeping price is larger than changing price
+v.ind           = ind;          % Record who did/didn't change prices
 
-pPdist = ind.*s(:,1) + (1-ind).*pPstar;    % distribution of real prices given state vector
+pPdist          = ind.*s(:,1) + (1-ind).*pPstar;    % distribution of real prices given state vector
 
 % Compute vE and jacobian if requested
 vE  = [];
 if (nargin<=5)  
     % Expected value function
-    
     ind = kron(ind, ones(glob.Ny*glob.Ny*glob.Nm,1));       % Match dimensions of Phiprime
-    
     vE = glob.Emat*glob.H*(dprod(ind, glob.Phiprime)*cK + ... 
                     dprod((1-ind), glob.Phiprime)*cC);
 end
 if (nargout==2)
-    jac = [ glob.Phi,                                       zeros(glob.Ns),                                 -param.beta*glob.Phi  ;
-          zeros(glob.Ns),                                   glob.Phi,                                       -param.beta*Phi_pPAMY ;
+    jac = [ glob.Phi,                                       sparse(glob.Ns,glob.Ns),                                 -param.beta*glob.Phi  ;
+          sparse(glob.Ns,glob.Ns),                           glob.Phi,                                       -param.beta*Phi_pPAMY ;
           -glob.Emat*glob.H*dprod(ind, glob.Phiprime),    -glob.Emat*glob.H*dprod((1-ind), glob.Phiprime),  glob.Phi             ];          
 end
 

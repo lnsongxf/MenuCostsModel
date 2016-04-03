@@ -22,14 +22,16 @@ function [ v, Phi_pPA ] = valfunc_noagg(flag,cE,s,pPstar,Y,param,glob,options)
 
 switch flag
     case 'K'
-        PI        = menufun_noagg('PIK',s,[],[],Y,param,glob,options);
-        Phi = glob.Phi;
-        v          = PI + param.beta*Phi*cE;
+        PI          = menufun_noagg('PIK',s,[],[],Y,param,glob,options);
+        Phi         = funbas(glob.fspace,s);
+        v           = PI + param.beta*Phi*cE;
+        % VIC DIFF: Here, vic recalculates funbas(glob.fspace,s). Not sure
+        % why? 
     case 'C'
-        PI        = menufun_noagg('PIC',s,pPstar,[],Y,param,glob,options);
-        Phi_pP  = splibas(glob.pPgrid0,0,glob.spliorder(1),pPstar);
+        PI          = menufun_noagg('PIC',s,pPstar,[],Y,param,glob,options);
+        Phi_pP      = splibas(glob.pPgrid0,0,glob.spliorder(1),pPstar);
         Phi_pPA     = dprod(glob.Phi_A,Phi_pP);
-        v          = PI + param.beta*Phi_pPA*cE;
+        v           = PI + param.beta*Phi_pPA*cE;
 end
 
 end

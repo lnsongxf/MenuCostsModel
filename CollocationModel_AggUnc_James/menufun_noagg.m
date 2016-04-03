@@ -1,4 +1,4 @@
-function out = menufun_noagg(flag,s,pPstar,ind,Y,param,glob,options)
+function out = menufun_noagg(flag,s,pP,ind,Y,param,glob,options)
 %MENUFUN 
 %-------------------------------------------------
 %
@@ -40,17 +40,17 @@ switch flag
     case 'PIC'
         A       = s(:,2);     
         MenuCost = MCfun();
-        out = Y.*(pPstar).^(1-theta) - ...
-            delta*Y.^sigma.*( (Y./A).^(1/alpha).*(pPstar).^(-theta/alpha) + MenuCost ).^(1+phielas);      
+        out = Y.*(pP).^(1-theta) - ...
+            delta*Y.^sigma.*( (Y./A).^(1/alpha).*(pP).^(-theta/alpha) + MenuCost ).^(1+phielas);      
     case 'output'
-        out       = Yfun(pPstar,Y);         % Firm's output 
+        out       = Yfun(pP,Y);         % Firm's output 
     case 'labour'
         A         = s(:,2);
-        ystar     = Yfun(pPstar,Y);
+        ystar     = Yfun(pP,Y);
         out       = Nfun(ystar, A, ind);    % Firm's labour demand
     case 'realwage'
         A         = s(:,2);
-        ystar     = Yfun(pPstar,Y);
+        ystar     = Yfun(pP,Y);
         nstar     = Nfun(ystar, A, ind);       
         out       = Wfun(nstar,Y);          % Firm's real wage        
 end
@@ -74,8 +74,8 @@ function nstar = Nfun(ystar,A,ind)
 end       
 
 % 3. Production function
-function ystar = Yfun(pPstar,Y)
-    ystar = Y.*(pPstar).^(-theta);
+function ystar = Yfun(pP,Y)
+    ystar = Y.*(pP).^(-theta);
 end
 
 % 4. Real wage paid by firm
