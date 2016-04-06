@@ -72,7 +72,7 @@ switch options.solveeq
     case 'Y'
         options.tolcbar     = 0.0001;           % Tolerance on cbar
         options.cbarlb      = 0.1;              % cbar lower bound
-        options.cbarub      = 1;                % cbar upper boud
+        options.cbarub      = 0.6;                % cbar upper boud
         options.itermaxcbar = 30;               % Max iterations of bisection
         options.eqplot      = 'Y'; 
         options.eqprint     = 'Y'; 
@@ -81,3 +81,72 @@ switch options.solveeq
         options.plotSD      = 'N';              % If Y plot steady state distribution
         eq                  = solve_eq(param,glob,options); 
 end
+
+
+%% Plot stationary distribution and value functions
+
+figure;
+subplot(1,2,1)
+L_reshape = reshape(eq.L,glob.nf(1),glob.nf(2));
+density = sum(L_reshape,2);
+plot(glob.xgridf,density)
+
+subplot(1,2,2)
+valfun = max(eq.v.vk,eq.v.vk);
+valfun_reshape = reshape(valfun,glob.nf(1),glob.nf(2));
+plot(glob.xgridf,valfun_reshape);
+
+%% Replicate Figure 1
+
+nu_plot = nodeunif(100,exp(-0.5),exp(0.5));
+s_plot = gridmake(1,nu_plot);
+
+% set up state space
+glob.Phi_nu  = splibas(glob.nugrid0,0,glob.spliorder(2),s_plot(:,2));
+
+% begin by plotting the middle line:
+% price firm would pick if it can
+% costlessly adjust: v.Pc
+param.k         = 0;
+v_mid           = solve_valfunc_GL(eq.c,s_plot,eq.cbar,param,glob,options,1);
+
+% for each point in a, find price (lower and upper bound)
+% at which firm is indifferent between changing and keeping
+param.k       = 0.0025;     % turn the menu cost back on
+x_low = zeros(1,length(nu_plot));
+x_upp = zeros(1,length(nu_plot));
+
+for n=1:length(nu_plot)
+    
+    % for the given level of a, set up the state space: lower bound
+    xl               = 1000;
+    x_plot_low       = nodeunif(xl,min(glob.xgrid),v_mid.Xc(n));
+    x_plot_upp       = nodeunif(xl,v_mid.Xc(n),max(glob.xgrid));
+    x_plot           = [x_plot_low; x_plot_upp(2:end)];
+    x_plot_upp       = x_plot_upp(2:end);
+    s_plot          = gridmake(x_plot,nu_plot(n));
+    glob.Phi_nu     = splibas(glob.nugrid0,0,glob.spliorder(2),s_plot(:,2));
+    
+    % compute lower/upper bounds on price
+    v           = solve_valfunc_GL(eq.c,s_plot,eq.cbar,param,glob,options,1);
+    dist        = abs(v.vc - v.vk);
+    [~,I_low]   = min(dist(1:xl));
+    x_low(n)    = x_plot_low(I_low);
+    [~,I_upp]   = min(dist(xl+1:end));
+    x_upp(n)    = x_plot_upp(I_upp);
+    
+end
+
+% make figure
+figure;
+plot(log(nu_plot),log(v_mid.Xc),'--','Color','k')
+hold on;
+plot(log(nu_plot),log(x_low),'LineWidth',2,'Color','b')
+hold on;
+plot(log(nu_plot),log(x_upp),'LineWidth',2,'Color','b')
+%set(gca,'Xlim',[-0.5 0.5])
+%set(gca,'Ylim',[-0.3 0.4])
+grid on;
+xlabel('Log Productivity')
+ylabel('Log Real Price')
+

@@ -1,4 +1,4 @@
-function [v,jac] = solve_valfunc_GL(c,s,cbar,param,glob,options)
+function [v,jac] = solve_valfunc_GL(c,s,cbar,param,glob,options,xxx)
 
     % Extract coefficients
     ck    = c(1:end/3);
@@ -21,11 +21,14 @@ function [v,jac] = solve_valfunc_GL(c,s,cbar,param,glob,options)
     maxval = max(vk,vc);
     Is = double((vc>vk));
 
-    % Find the RHS of expected value function
-    % to account for other grid sizes, need to find length of x grid
-    xgrid   = s(s(:,2)==s(1,2),1); 
-    xlength = size(xgrid,1);
-    ve = kron(glob.Nu,speye(xlength))*maxval;
+    if (nargin<=6)
+        % Find the RHS of expected value function
+        % to account for other grid sizes, need to find length of x grid
+        xgrid   = s(s(:,2)==s(1,2),1); 
+        xlength = size(xgrid,1);
+        ve = kron(glob.Nu,speye(xlength))*maxval;
+        v.ve    = ve;
+    end
 
     % Find a policy function for prices
     Xp = Xc.*Is + s(:,1).*(1-Is);
@@ -35,13 +38,12 @@ function [v,jac] = solve_valfunc_GL(c,s,cbar,param,glob,options)
     if (nargout==2)
         jac     = [funbas(glob.fspace,s), sparse(glob.Ns,glob.Ns), -param.beta*funbas(glob.fspace,s); ...
              	sparse(glob.Ns,glob.Ns), funbas(glob.fspace,s), -param.beta*Phi_XpNu;
-                -glob.Emat*(dprod((1-Is),funbas(glob.fspace,s))), ...
-                -glob.Emat*(dprod(Is,funbas(glob.fspace,s))), funbas(glob.fspace,s)];
+                -kron(glob.Nu,speye(glob.Nx))*(dprod((1-Is),glob.Phi)), ...
+                -kron(glob.Nu,speye(glob.Nx))*(dprod(Is,glob.Phi)), funbas(glob.fspace,s)];
     end
     %__________________________________________________________________________
 
     % Packup output
-    v.ve    = ve;
     v.vc    = vc;
     v.vk    = vk;
     v.Xc    = Xc;
