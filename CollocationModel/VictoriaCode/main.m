@@ -79,7 +79,6 @@ eq.L'*eq.v.Pp
 % out=funbas(glob.fspace,glob.sf)*eq.c;
 % plot(glob.sf(350:400,1)./(eq.Pa),eq.v.vf(350:400),glob.sf(350:400,1)./(eq.Pa),out(350:400))
 % legend('RHS','LHS')
-plot(glob.pgridf,eq.v.vf(1:500),glob.pgridf,eq.v.vf(501:1000),glob.pgridf,eq.v.vf(1001:1500),glob.pgridf,eq.v.vf(1501:2000))
 
 %% Solve equilibrium
 switch options.solveeq
@@ -96,9 +95,11 @@ switch options.solveeq
         eq                  = solve_eq_menucost(param,glob,options); 
 end
 
+figure
 L_reshape = reshape(eq.L,glob.nf(1),glob.nf(2));
 density = sum(L_reshape,2);
 plot(density)
+plot(glob.pgridf,eq.v.vf(1:500),glob.pgridf,eq.v.vf(501:1000),glob.pgridf,eq.v.vf(1001:1500),glob.pgridf,eq.v.vf(1501:2000))
 
 %% Set up for Krussel-Smith
 
@@ -327,7 +328,7 @@ sd_new_prices           = nanstd(log_dev_prices_inc,1);
 mean(sd_new_prices(20:end))
 
 
-%% impluse responses
+%% impluse responses (look at how Simon does these...)
 
 % mean distribution over original simulation
 mean_L      = mean(paths.L(:,20:end),2);
@@ -436,12 +437,31 @@ for t = 2:options.T
 
 end
 
+%% create figure
+
+figure;
+
 % output gap
-dev_Y = (Y_sim - Y_mean)./Y_mean;
-plot(dev_Y(1:end-1))
+subplot(2,1,1)
+dev_Y = 100*(Y_sim - Y_mean)./Y_mean;
+plot(-1:12,dev_Y(1:14),'LineWidth',2,'Color','b')
+grid on;
+xlabel('Quarters after shock')
+ylabel('Deviation from Trend (%)')
+title('Impulse Response: Output Gap')
+set(gca,'Ylim',[0 0.7])
+set(gca,'Xlim',[-1 12])
 
 % inflation
+subplot(2,1,2);
 pi = P_sim(2:options.T-1)./P_sim(1:options.T-2);
 pi2 = paths.P(2:options.T-1)./paths.P(1:options.T-2);
 pi2_mean = mean(pi2(20:end));
-plot((pi(1:12)-pi2_mean)/pi2_mean)
+dev_pi = 4*100*(pi-pi2_mean)/pi2_mean;
+plot(-1:12,dev_pi(1:14),'LineWidth',2,'Color','b')
+grid on;
+xlabel('Quarters after shock')
+ylabel('Deviation from Trend (%)')
+title('Impulse Response: Inflation (annualized)')
+set(gca,'Ylim',[0 1])
+set(gca,'Xlim',[-1 12])
