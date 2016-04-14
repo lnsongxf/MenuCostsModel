@@ -74,7 +74,7 @@ switch options.solveeq
         options.cbarlb      = 0.1;              % cbar lower bound
         options.cbarub      = 0.6;                % cbar upper boud
         options.itermaxcbar = 30;               % Max iterations of bisection
-        options.eqplot      = 'Y'; 
+        options.eqplot      = 'N'; 
         options.eqprint     = 'Y'; 
         options.print       = 'N';
         options.Loadc       = 'Y';              % For new guess of cbar use old c as starting guess
