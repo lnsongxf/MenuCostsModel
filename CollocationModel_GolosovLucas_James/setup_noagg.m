@@ -73,9 +73,8 @@ glob.Phi_V      = splibas(vgrid0,0,spliorder(2),s(:,2));        % Used in Bellma
 glob.Phi_Vf     = splibas(vgrid0,0,spliorder(2),sf(:,2));       % Used when solving on fine grid
 
 %% Create the basis matrix adjusting for SS money growth/price inflation
-Dw_prime             = param.alpha*param.R*param.mu;                        % Stationary wage inflation
-s_prime              = [s(:,1)*(1/exp(Dw_prime)), s(:,2)];
-s_primef             = [sf(:,1)*(1/exp(Dw_prime)), sf(:,2)];
+s_prime              = [s(:,1)*(1/exp(param.mu)), s(:,2)];
+s_primef             = [sf(:,1)*(1/exp(param.mu)), sf(:,2)];
 glob.Phiprime        = funbas(fspace,s_prime);     
 glob.Phiprimef       = funbas(fspace,s_primef);
 

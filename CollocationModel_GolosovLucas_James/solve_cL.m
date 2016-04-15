@@ -20,15 +20,15 @@ function eq  = solve_cL(Y,param,glob,options)
 s           = glob.s; 
 sf          = glob.sf;
 pPgrid      = glob.pPgrid;
-% ns          = size(s,1);
+ns          = size(s,1);
 
 %% B. Compute equilibrium objects that depend on p
 % ----- None -----
 
 %% Initialise guesses
-cKold       = zeros(glob.Ns,1);
-cCold       = zeros(glob.Ns,1);
-cEold       = zeros(glob.Ns,1);
+cKold       = zeros(ns,1);
+cCold       = zeros(ns,1);
+cEold       = zeros(ns,1);
 cold        = [cKold;cCold;cEold];
 
 % Check if previous solution exists
@@ -94,9 +94,9 @@ glob.Phiprime   = glob.Phiprimef;
 v               = solve_valfunc_noagg(c,sf,Y,param,glob,options,1);
 
 % Compute stationary distribution
-pPstar           = min(v.pPstar,max(pPgrid));
+pPdist           = min(v.pPdist,max(pPgrid));
 fspaceergpP      = fundef({'spli',glob.pPgridf,0,1});
-QpP              = funbas(fspaceergpP,pPstar);
+QpP              = funbas(fspaceergpP,pPdist);
 QV              = glob.QV;
 Q               = dprod(QV,QpP);
 
@@ -162,7 +162,7 @@ if strcmp(options.plotSD,'Y');
 end
 
 % Compute implied Y (from the stationary agg consumption equation 17/21 in GL(2007))
-Ynew = ( param.alpha^(1 - param.epsilon)*(pPstar'.^(1 - param.epsilon)*L) )^...
+Ynew = ( param.alpha^(1 - param.epsilon)*(pPdist'.^(1 - param.epsilon)*L) )^...
     (1/(param.gamma*(param.epsilon - 1)));
 
 

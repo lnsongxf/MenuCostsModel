@@ -29,7 +29,7 @@ vK = valfunc_noagg('K',cE,s,[],Y,param,glob,options);
 B                       = menufun('bounds',s,[],[],Y,param,glob,options); 
 obj                     = @(pPstar)valfunc_noagg('C',cE,s,pPstar,Y,param,glob,options);
 pPstar                  = goldenx(obj,B(:,1),B(:,2));
-[vC, Phi_pPV] = valfunc_noagg('C',cE,s,pPstar,Y,param,glob,options);
+[vC, Phi_pPV]           = valfunc_noagg('C',cE,s,pPstar,Y,param,glob,options);
 
 ind = (vK > vC);    % Indicator for when value of keeping price is larger than changing price
 ind = double(ind);
@@ -42,7 +42,9 @@ pPdist = ind.*pP + (1-ind).*pPstar;    % distribution of real prices given state
 vE  = [];
 if (nargin<=6)  
     % Expected value function    
-    vE = glob.Emat*(dprod(ind, glob.Phiprime)*cK + dprod((1-ind), glob.Phiprime)*cC);
+    glob.Emat       = kron(glob.P,speye(size(s,1)));
+    vE  = glob.Emat*max(vK,vC);
+%     vE = glob.Emat*(dprod(ind, glob.Phiprime)*cK + dprod((1-ind), glob.Phiprime)*cC);
 end
 
 if (nargout==2)

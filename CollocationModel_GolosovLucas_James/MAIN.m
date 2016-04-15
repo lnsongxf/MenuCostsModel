@@ -7,7 +7,6 @@
 %
 %   (This is modified code based on original code by Simon Mongey (NYU,
 %   2015))
-%--------------------------------
 
 %% 
 % Add CompEcon package
@@ -16,7 +15,7 @@ p = genpath('C:\Users\James\Dropbox\Economics\Matlab_codes\CompEcon');
 addpath(p);
 
 % cd('E:\Dropbox\Economics\2015_2016_material\AdvMacro_Midrigan\TermPaper\MenuCostsModel\CollocationModel_GolosovLucas')
-cd('C:\Users\James\Dropbox\economics\2015_2016_material\AdvMacro_Midrigan\TermPaper\MenuCostsModel\CollocationModel_GolosovLucas')
+cd('C:\Users\James\Dropbox\economics\2015_2016_material\AdvMacro_Midrigan\TermPaper\MenuCostsModel\CollocationModel_GolosovLucas_James')
 
 clear
 clc
@@ -33,7 +32,7 @@ options.sim         = 'Y';      % Solve simulation
 options.solveIRF    = 'N';
 
 % Model options 
-options.discmethod     = 'R';      % If 'T' use Tauchen, if 'R' use Rouwenhurst
+options.discmethod  = 'R';      % If 'T' use Tauchen, if 'R' use Rouwenhurst
 options.MC          = 'Y';        % If 'N' then menu costs are zero
 
 % Compute stationary distribution?
@@ -60,13 +59,13 @@ options.Nfirms      = 5000;             % Number of firms for simulation
 options.print       = 'Y';      % Print out c-solution convergence
 options.eqprint     = 'Y';      % Print out equilibrium convergence steps
 options.plotSD      = 'N';      % Plot stationary distribution while solving equilibrium
-options.plotpolicyfun = 'N';      % If Y, plot policy functions
+options.plotpolicyfun = 'Y';      % If Y, plot policy functions
 options.fontsize    = 12;       % Plot fontsize
 options.fignum      = 999;
 
 %% Statespace parameters
 glob.n          = [10,5,3,3];   % Number of nodes in each dimension: [Np,Nv,Nm,Ny]
-glob.nf         = [100,100];   % Number of points for pP and a in histogram L
+glob.nf         = [300,5];   % Number of points for pP and a in histogram L
 glob.curv       = 1;           % Curvature for pP (1 is no curvature, <1 is curvature)
 glob.spliorder  = [3,1,1,1];   % Order of splines (use linear if exogenous vars are discrete (not AR1))
 glob.pPmin       = exp(-0.4);       % Lower bound on real price
@@ -79,13 +78,13 @@ glob.pPmax       = exp(0.5);        % Upper bound on real price
 
 param.rho       = 0.04;           % Discount rate
 % param.beta      = exp(-param.rho);  % 1/(1+param.rho); % Discount factor
-param.gamma     = 5;             % risk aversion
+param.gamma     = 2;             % risk aversion
 param.epsilon   = 7;          % elasticity of substition
 param.alpha     = 6;       % disutility of labour
 param.eta       = 0.55;        % 
 param.rhov      = (1-param.eta); % AR(1) coefficient for productivity
 param.sigv      = sqrt(0.011);   % Std dev of productivity process
-param.k         = 0.01;     %0.0025;      % menu cost 
+param.k         = 0.0025;      % menu cost 
 param.mu        = 0.0064;      % Drift parameter for money growth
 param.sigm      = 0.0062;      % Std dev of money growth shocks
 param.R         = param.rho + param.mu;  % Stationary interest rate
@@ -107,7 +106,6 @@ if strcmp(options.solvecL,'Y');
     eq                  = solve_cL(Y,param,glob,options);
     glob.c              = eq.c;
     fprintf('Yin = %1.2f,\tYout = %1.2f\n',Y,eq.Y);
-%     fprintf('Pin = %1.2f,\tPout = %1.2f\n',1,eq.P);
     fprintf('--------------------------------------');
 end
 
@@ -132,9 +130,61 @@ save TEMP
 
 
 %% Reproduce Figure 1 of GS(2007)
+% COURTESY OF VIC
+v_range = nodeunif(100,exp(-0.5),exp(0.5));
+s_plot = gridmake(1,v_range);
+
+% set up state space
+glob.Phi_V  = splibas(glob.vgrid0,0,glob.spliorder(2),s_plot(:,2));        % Used in Bellman / Newton computing expected values
+% begin by plotting the middle line:
+% price firm would pick if it can
+% costlessly adjust: v.Pc
+param.k         = 0;
+v_mid           = solve_valfunc_noagg(eq.c,s_plot,eq.Y,param,glob,options);
+% for each point in a, find price (lower and upper bound)
+% at which firm is indifferent between changing and keeping
+param.k       = 0.0025;     % turn the menu cost back on
+x_low = zeros(1,length(v_range));
+x_upp = zeros(1,length(v_range));
+
+for n=1:length(v_range)
+    % for the given level of a, set up the state space: lower bound
+    xl               = 1000;
+    x_plot_low       = nodeunif(xl,min(glob.pPgrid),v_mid.Xc(n));
+    x_plot_upp       = nodeunif(xl,v_mid.Xc(n),max(glob.xgrid));
+    x_plot           = [x_plot_low; x_plot_upp(2:end)];
+    x_plot_upp       = x_plot_upp(2:end);
+    s_plot          = gridmake(x_plot,v_range(n));
+    glob.Phi_nu     = splibas(glob.nugrid0,0,glob.spliorder(2),s_plot(:,2));
+
+    % compute lower/upper bounds on price
+    v           = solve_valfunc_GL(eq.c,s_plot,eq.cbar,param,glob,options,1);
+    dist        = abs(v.vc - v.vk);
+    [~,I_low]   = min(dist(1:xl));
+    x_low(n)    = x_plot_low(I_low);
+    [~,I_upp]   = min(dist(xl+1:end));
+    x_upp(n)    = x_plot_upp(I_upp);
+end
+
+% make figure
+figure;
+plot(log(v_range),log(v_mid.Xc),'--','Color','k')
+hold on;
+plot(log(v_range),log(x_low),'LineWidth',2,'Color','b')
+hold on;
+plot(log(v_range),log(x_upp),'LineWidth',2,'Color','b')
+%set(gca,'Xlim',[-0.5 0.5])
+
+%set(gca,'Ylim',[-0.3 0.4])
+
+grid on;
+xlabel('Log Productivity')
+ylabel('Log Real Price')
+
+% MY OLD VERSION
+%{
 % UP TO HERE!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 % FIX: need to find the boundaries of the 'active' and 'inactive' region.
-
 Nv           = 50;
 vgridlongtmp = nodeunif(Nv,glob.vgrid0(1),glob.vgrid0(end));  % Adds curvature
 s_eval       = gridmake(glob.pPgridf,vgridlongtmp);
@@ -190,7 +240,7 @@ xlabel('Log productivity, v')
 ylabel('Log relative price, p/w')
 legend('Optimal','Upper bound','Lower bound')
 
-
+%}
 
 
 

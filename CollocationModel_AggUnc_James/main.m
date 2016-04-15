@@ -34,12 +34,12 @@
 
 %% 
 % Add CompEcon package
-p = genpath('E:\Dropbox\Economics\Matlab_codes\CompEcon');
-% p = genpath('C:\Users\James\Dropbox\Economics\Matlab_codes\CompEcon');
+% p = genpath('E:\Dropbox\Economics\Matlab_codes\CompEcon');
+p = genpath('C:\Users\James\Dropbox\Economics\Matlab_codes\CompEcon');
 addpath(p);
 
-cd('E:\Dropbox\Economics\2015_2016_material\AdvMacro_Midrigan\TermPaper\MenuCostsModel\CollocationModel_AggUnc_James')
-% cd('C:\Users\James\Dropbox\economics\2015_2016_material\AdvMacro_Midrigan\TermPaper\MenuCostsModel\CollocationModel_AggUnc_James')
+% cd('E:\Dropbox\Economics\2015_2016_material\AdvMacro_Midrigan\TermPaper\MenuCostsModel\CollocationModel_AggUnc_James')
+cd('C:\Users\James\Dropbox\economics\2015_2016_material\AdvMacro_Midrigan\TermPaper\MenuCostsModel\CollocationModel_AggUnc_James')
 
 clear
 clc
@@ -329,6 +329,7 @@ eq.Y = mean(sim.Yt);
 eq.L = mean(sim.Lt,2);
 eq.pi = mean(sim.Pt(2:end)./sim.Pt(1:end-1));
 
+options.T = 300; 
 [~,~,sim] = simulate_KS(c,v,eq,param,glob,options);
 
 figure;

@@ -31,7 +31,7 @@ if strcmp(options.irf, 'N')
     DMshocks = randn(T,1);
 elseif strcmp(options.irf, 'Y')
     DMshocks = zeros(T,1);
-    DMshocks(2) = 1;
+%     DMshocks(2) = 1;
 end
 
 % Initialize DM and M at t=0
