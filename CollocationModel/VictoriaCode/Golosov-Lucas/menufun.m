@@ -8,8 +8,11 @@ function out = menufun(flag,s,x,cbar,param,glob,options)
     alpha   = param.alpha;
 
     switch flag
-        case 'flow'
+        case 'keep'
             x   = s(:,1);
+            nu  = s(:,2);
+            out = cbar.^(1-epsilon*gamma).*(alpha.*x).^(-epsilon).*(x-1./nu);
+        case 'change'
             nu  = s(:,2);
             out = cbar.^(1-epsilon*gamma).*(alpha.*x).^(-epsilon).*(x-1./nu);
     end

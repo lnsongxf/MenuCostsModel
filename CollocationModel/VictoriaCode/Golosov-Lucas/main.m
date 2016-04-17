@@ -46,7 +46,7 @@ param.eta       = 0.55;
 param.sigmanu   = sqrt(0.011);
 param.k         = 0.0025;
 param.mu        = 0.0064;
-param.sigmam    = sqrt(0);
+param.sigmam    = 0.0062;
 param.R         = param.rho + param.mu;
 param.beta      = exp(-param.R);
 
@@ -61,7 +61,7 @@ fprintf('Setup complete\n');
 %% Solve only x and L for a given cbar
 switch options.solvexL
     case 'Y'
-        cbar                = 0.35;      % Conjectured value of cbar    
+        cbar                = 0.5;      % Conjectured value of cbar    
         options.cresult     = [];     % Holds previous solution for c. Empty in this case.
         eq                  = solve_xL(cbar,param,glob,options);  
         fprintf('cbarin = %1.2f,\tcbarout = %1.2f\n',cbar,eq.cbar);
@@ -92,7 +92,7 @@ density = sum(L_reshape,2);
 plot(glob.xgridf,density)
 
 subplot(1,2,2)
-valfun = max(eq.v.vk,eq.v.vk);
+valfun = max(eq.v.vk,eq.v.vc);
 valfun_reshape = reshape(valfun,glob.nf(1),glob.nf(2));
 plot(glob.xgridf,valfun_reshape);
 
@@ -149,4 +149,58 @@ plot(log(nu_plot),log(x_upp),'LineWidth',2,'Color','b')
 grid on;
 xlabel('Log Productivity')
 ylabel('Log Real Price')
+
+%% set up for Krussel-Smith
+
+% State space
+glob.n          = [glob.n(1),glob.n(2),6];                   % Number of nodes in each dimension
+glob.nf         = [glob.nf(1),glob.nf(2),12];                % Number of points for x, nu, cbar in histogram L
+glob.curv       = 1;                                         % Grid curvature for x on (0,1] (1 is no curvature)
+glob.spliorder  = [glob.spliorder(1),glob.spliorder(2),1];   % Order of splines (always use linear if shocks are discrete (not AR1))
+glob.Ne         = 50;                                        % Number of points for money shocks
+
+% Law of motion - initial guesses
+cKS.b0     = -0.105;     % constant
+cKS.b1     = 0.9;        % coeff on cbar_{t-1}
+cKS.b2     = 1;          % coeff on pi_t
+% cKS.b0     = -0.6524;     % constant
+% cKS.b1     = 0.3179;        % coeff on cbar_{t-1}
+% cKS.b2     = .1816;          % coeff on pi_t
+
+% Print / plot 
+options.print       = 'Y';
+options.tolcagg     = 0.0001;
+options.T           = 300;
+options.Tburn       = 20;
+options.KSit        = 10;
+options.KStol       = 0.001;
+options.eqprint     = 'N';
+
+%% Solve Krussel-Smith problem
+
+for itercKS = 1:options.KSit 
+
+    fprintf('----------- Simulation Number:%2.0f -----------\n',itercKS);
+    % Solve, simulate, etc
+    options.cresult = [];   % Holds previous solution for c. Empty in this case.
+    [c,v,KS_coeffs,R2,paths]  = solve_KS(cKS,eq,param,glob,options);
+    
+    % update Krusell-Smith coefficients guess
+    d_b0                   = norm(KS_coeffs(1)-cKS.b0)/norm(cKS.b0);  
+    d_b1                   = norm(KS_coeffs(2)-cKS.b1)/norm(cKS.b1); 
+    d_b2                   = norm(KS_coeffs(3)-cKS.b2)/norm(cKS.b2);
+    cKS.b0                 = KS_coeffs(1);
+    cKS.b1                 = KS_coeffs(2);
+    cKS.b2                 = KS_coeffs(3);
+
+    % print and check for convergence
+    fprintf('b0:\t%2.6f\tb1:\t%2.6f\tb2:%2.6f\n',KS_coeffs(1),KS_coeffs(2),KS_coeffs(3));
+    fprintf('norm = %1.4f\n',d_b0+d_b1+d_b2);
+    if d_b0+d_b1+d_b2<options.KStol,break,end
+end
+
+% re-run setup after solving Krussel-Smith
+fprintf('Setup\n');
+[param,glob]    = setup_ks(cKS,param,glob,options);      
+fprintf('Setup complete\n');
 

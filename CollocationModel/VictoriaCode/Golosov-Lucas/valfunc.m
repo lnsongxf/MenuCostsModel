@@ -4,7 +4,7 @@ function [v,Phi_XpNu] = valfunc(c,s,xp,cbar,param,glob,options)
     % Compute flow profits if change
     x           = s(:,1);
     nu          = s(:,2);
-    F           = menufun('flow',[x,nu],xp,cbar,param,glob,options);
+    F           = menufun('change',[x,nu],xp,cbar,param,glob,options);
     %__________________________________________________________________________
     % Create basis matrices for continuation value
     Phi_Xp      = splibas(glob.xgrid0,0,glob.spliorder(1),xp);

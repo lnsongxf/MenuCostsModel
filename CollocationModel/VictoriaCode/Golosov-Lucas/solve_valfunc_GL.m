@@ -14,7 +14,7 @@ function [v,jac] = solve_valfunc_GL(c,s,cbar,param,glob,options,xxx)
     vc                      = vc - param.k;
 
     % Next, compute the value if the firm keep its price
-    Pikeep = menufun('flow',s,s(:,1),cbar,param,glob,options);
+    Pikeep = menufun('keep',s,s(:,1),cbar,param,glob,options);
     vk     = Pikeep + param.beta*funbas(glob.fspace,s)*ce;
 
     % Find the maximum of vc and vk and define I(s)

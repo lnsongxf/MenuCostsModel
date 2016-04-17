@@ -28,9 +28,9 @@ for citer = (1:options.Nbell)
     % 1. Compute values;
     v           = solve_valfunc_GL(cold,s,cbar,param,glob,options); 
     % 2. Update c
-    ck          = glob.Phi\full(v.vk);   
-    cc          = glob.Phi\full(v.vc); 
-    ce          = glob.Phi\full(v.ve); 
+    ck          = funbas(glob.fspace,s)\full(v.vk);   
+    cc          = funbas(glob.fspace,s)\full(v.vc); 
+    ce          = funbas(glob.fspace,s)\full(v.ve); 
     c           = [ck;cc;ce]; 
     % 3. Compute distance and update
     dc          = norm(c-cold)/norm(cold); 
