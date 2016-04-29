@@ -12,6 +12,7 @@ function [v,jac] = solve_valfunc_noagg(c,s,Y,param,glob,options,xxx)
 %   - param     = 
 %   - glob      =
 %   - options   = 
+%   - xxx       = indicator variable. If included, then compute jacobian
 %   OUTPUT
 %   - v         = 
 %   - jac       = Jacobian of the value functions  
@@ -20,10 +21,18 @@ function [v,jac] = solve_valfunc_noagg(c,s,Y,param,glob,options,xxx)
 %% Unpack coefficient vector
 cK = c(1:end/3);
 cC = c(end/3+1:2*end/3);
-cE = c(2*end/3+1:end);   
+
+% If solving for impulse response function, then expectations coefficients
+% are already known: they are the coefficients from next period's
+% pre-solveed value function. 
+if strcmp(options.IRF,'N');
+    cE = c(2*end/3+1:end);   
+elseif strcmp(options.IRF,'Y');
+    cE = glob.CEi1;
+end
 
 %% Value function when keeping price
-vK = valfunc_noagg('K',cE,s,[],Y,param,glob,options);
+vK                      = valfunc_noagg('K',cE,s,[],Y,param,glob,options);
 
 %% Value function when changing price
 B                       = menufun('bounds',s,[],[],Y,param,glob,options); 
@@ -37,14 +46,15 @@ ind = double(ind);
 pP = s(:,1);
 pPdist = ind.*pP + (1-ind).*pPstar;    % distribution of real prices given state vector
 
-
 %% Compute vE and jacobian if requested
 vE  = [];
 if (nargin<=6)  
-    % Expected value function    
-    glob.Emat       = kron(glob.P,speye(size(s,1)));
-    vE  = glob.Emat*max(vK,vC);
-%     vE = glob.Emat*(dprod(ind, glob.Phiprime)*cK + dprod((1-ind), glob.Phiprime)*cC);
+    % Expected value function
+    %     vE          = glob.Emat*max(vK,vC);
+    s_prime     = [s(:,1)*(1/exp(glob.piw)), s(:,2)];
+    Phiprime    = funbas(glob.fspace,s_prime);
+    vE          = glob.Emat*(dprod(ind, Phiprime)*cK + dprod((1-ind), Phiprime)*cC);
+    % % %    vE          = glob.Emat*(dprod(ind, glob.Phiprime)*cK + dprod((1-ind), glob.Phiprime)*cC);
 end
 
 if (nargout==2)

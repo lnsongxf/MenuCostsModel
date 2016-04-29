@@ -15,7 +15,7 @@ function [eq] = solve_eq(param,glob,options)
 %-------------------------------------------------
 
 % initialize
-Yout = 1/2*(options.Ylb + options.Yub);
+Yout = options.Yinit;
 
 % Storage
 Yinvec          = zeros(options.itermaxp,1); 
@@ -29,7 +29,7 @@ for tt = (1:options.itermaxp)
     % 2. Solve economy given Y
     eq              = solve_cL(Yin,param,glob,options);  
     options.cresult = eq.c;         % Save to use as starting guess
-    Yout            = glob.damp*Yin   + (1-glob.damp)*eq.Y;     % update Y
+    Yout            = options.damp*Yin   + (1-options.damp)*eq.Y;     % update Y
     % 3. Record output and print
     Yinvec(tt)      = Yin;
     Youtvec(tt)     = eq.Y;

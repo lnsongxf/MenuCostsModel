@@ -94,7 +94,7 @@ glob.Phiprime   = glob.Phiprimef;
 v               = solve_valfunc_noagg(c,sf,Y,param,glob,options,1);
 
 % Compute stationary distribution
-pPdist           = min(v.pPdist,max(pPgrid));
+pPdist           = min(v.pPdist,max(pPgrid)).*(1/exp(glob.piw));
 fspaceergpP      = fundef({'spli',glob.pPgridf,0,1});
 QpP              = funbas(fspaceergpP,pPdist);
 QV              = glob.QV;
@@ -165,8 +165,6 @@ end
 Ynew = ( param.alpha^(1 - param.epsilon)*(pPdist'.^(1 - param.epsilon)*L) )^...
     (1/(param.gamma*(param.epsilon - 1)));
 
-
-
 %% Pack-up output
 eq.v    = v;
 eq.c    = c;
@@ -193,17 +191,25 @@ if strcmp(options.plotpolicyfun,'Y')
 %     wPstar = reshape(v.wPstar, length(glob.pPgridf), length(glob.vgridf));
     
     figure
-    subplot(2,3,1)
     plot(glob.pPgridf, valtot)
     xlabel('Real price','fontsize',options.fontsize)
     ylabel('Value','fontsize',options.fontsize)
     set(gca, 'fontsize', options.fontsize)
     legend('v_1','v_2','v_3','v_4','v_5')
-    subplot(2,3,2)
-    plot(glob.pPgridf, pPdist)
-    xlabel('Real price','fontsize',options.fontsize)
-    ylabel('Observed real price','fontsize',options.fontsize)
-    set(gca, 'fontsize', options.fontsize)
+
+% 
+%     figure
+%     subplot(2,3,1)
+%     plot(glob.pPgridf, valtot)
+%     xlabel('Real price','fontsize',options.fontsize)
+%     ylabel('Value','fontsize',options.fontsize)
+%     set(gca, 'fontsize', options.fontsize)
+%     legend('v_1','v_2','v_3','v_4','v_5')
+%     subplot(2,3,2)
+%     plot(glob.pPgridf, pPdist)
+%     xlabel('Real price','fontsize',options.fontsize)
+%     ylabel('Observed real price','fontsize',options.fontsize)
+%     set(gca, 'fontsize', options.fontsize)
 %     subplot(2,3,3)
 %     plot(glob.pPgridf, ystar)
 %     xlabel('Real price','fontsize',options.fontsize)

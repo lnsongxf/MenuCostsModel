@@ -10,12 +10,14 @@
 
 %% 
 % Add CompEcon package
-% p = genpath('E:\Dropbox\Economics\Matlab_codes\CompEcon');
-p = genpath('C:\Users\James\Dropbox\Economics\Matlab_codes\CompEcon');
-addpath(p);
+% 
+% cd('C:\Users\James\Dropbox\economics\2015_2016_material\AdvMacro_Midrigan\TermPaper\MenuCostsModel\CollocationModel_GolosovLucas_James')
+% p = genpath('C:\Users\James\Dropbox\Economics\Matlab_codes\CompEcon');
+% addpath(p);
 
-% cd('E:\Dropbox\Economics\2015_2016_material\AdvMacro_Midrigan\TermPaper\MenuCostsModel\CollocationModel_GolosovLucas')
-cd('C:\Users\James\Dropbox\economics\2015_2016_material\AdvMacro_Midrigan\TermPaper\MenuCostsModel\CollocationModel_GolosovLucas_James')
+cd('E:\Dropbox\Economics\2015_2016_material\AdvMacro_Midrigan\TermPaper\MenuCostsModel\CollocationModel_GolosovLucas_James')
+p = genpath('E:\Dropbox\Economics\Matlab_codes\CompEcon');
+addpath(p);
 
 clear
 clc
@@ -29,7 +31,7 @@ options.solveeq       = 'Y';      % Solve equilibrium (not if agg uncertainty)
 options.polfun      = 'Y';      % 
 options.solveKS     = 'Y';      % Solve Krussel-Smith
 options.sim         = 'Y';      % Solve simulation
-options.solveIRF    = 'N';
+options.IRF         = 'N';
 
 % Model options 
 options.discmethod  = 'R';      % If 'T' use Tauchen, if 'R' use Rouwenhurst
@@ -51,6 +53,7 @@ options.tolYeq      = 1e-8;    % Tolerance for eqm Y in no agg uncertainty
 options.tolYks      = 1e-2;    % Tolerance for eqm Y in KS step
 
 % For computation of equilibrium
+options.damp        = 0.5;      %  Dampening parameter computation of eqm values
 options.T           = 100;       % simulation length
 options.Nfirms      = 5000;             % Number of firms for simulation
 
@@ -59,7 +62,7 @@ options.Nfirms      = 5000;             % Number of firms for simulation
 options.print       = 'Y';      % Print out c-solution convergence
 options.eqprint     = 'Y';      % Print out equilibrium convergence steps
 options.plotSD      = 'N';      % Plot stationary distribution while solving equilibrium
-options.plotpolicyfun = 'Y';      % If Y, plot policy functions
+options.plotpolicyfun = 'N';      % If Y, plot policy functions
 options.fontsize    = 12;       % Plot fontsize
 options.fignum      = 999;
 
@@ -72,181 +75,143 @@ glob.pPmin       = exp(-0.4);       % Lower bound on real price
 glob.pPmax       = exp(0.5);        % Upper bound on real price
 
 %% Model parameters
-% NOTE: delta=0.3 seems to work fine, but delta=0.352 gets closer to the
-% paper's plotted policy function. However, delta=0.352 doesn't seem to be
-% stable when solving the KS algorithm step...
-
-param.rho       = 0.04;           % Discount rate
-% param.beta      = exp(-param.rho);  % 1/(1+param.rho); % Discount factor
-param.gamma     = 2;             % risk aversion
-param.epsilon   = 7;          % elasticity of substition
-param.alpha     = 6;       % disutility of labour
-param.eta       = 0.55;        % 
-param.rhov      = (1-param.eta); % AR(1) coefficient for productivity
-param.sigv      = sqrt(0.011);   % Std dev of productivity process
-param.k         = 0.0025;      % menu cost 
-param.mu        = 0.0064;      % Drift parameter for money growth
-param.sigm      = 0.0062;      % Std dev of money growth shocks
+param.gamma     = 2;                % risk aversion
+param.epsilon   = 7;                % elasticity of substition
+param.alpha     = 6;                % disutility of labour
+param.eta       = 0.55;             % 
+param.rhov      = (1-param.eta);    % AR(1) coefficient for productivity
+param.sigv      = sqrt(0.011);      % Std dev of productivity process
+param.k         = 0.0025;           % menu cost 
+param.mu        = 0.0064;           % Quarterly inflation rate: mu = 0.0064
+param.sigm      = 0.0062;           % Std dev of money growth shocks
+param.rho       = 0.04;             % Annual discount rate: rho = 0.04
 param.R         = param.rho + param.mu;  % Stationary interest rate
-param.beta      = exp(-param.R);
+param.beta      = exp(-param.R);    
 
+glob.piw                = param.mu;   % set the steady state inflation rate
 
 %% NO AGGREGATE UNCERTAINTY
 
 % Setup no aggregate uncertainty problem
-options.agguncertainty = 'N';
-fprintf('Setup\n');
 glob = setup_noagg(param,glob,options);
-fprintf('Setup complete\n');
 
 %% Solve value function approx coefficients and stationary distribution for a given output Y
 if strcmp(options.solvecL,'Y');
-    Y                   = 0.5;  % Conjectured value of output, Y
-    options.cresult     = [];   % Holds previous solution for c. Empty in this case.
-    eq                  = solve_cL(Y,param,glob,options);
-    glob.c              = eq.c;
+    options.plotpolicyfun   = 'N';              % If Y, plot policy functions
+    Y                       = 0.5;  % Conjectured value of output, Y
+    options.cresult         = [];   % Holds previous solution for c. Empty in this case.
+    eq                      = solve_cL(Y,param,glob,options);
+    glob.c                  = eq.c;
     fprintf('Yin = %1.2f,\tYout = %1.2f\n',Y,eq.Y);
     fprintf('--------------------------------------');
 end
 
 %% Solve equilibrium
 if strcmp(options.solveeq,'Y');
-    glob.damp               = 0.5;
-    options.tolp            = 0.0001;           % Tolerance on price
-    options.Ylb             = 0.1;              % Output lower bound
-    options.Yub             = 10;               % Output upper boud
+    options.Yinit           = 1;
     options.itermaxp        = 30;               % Max iterations of bisection
     options.eqplot          = 'Y';
     options.eqprint         = 'Y';
     options.print           = 'N';
     options.Loadc           = 'Y';              % For new guess of p use old c as starting guess
-    options.plotSD          = 'Y';              % If Y plot steady state distribution
+    options.plotSD          = 'N';              % If Y plot steady state distribution
     options.fontsize        = 12;
     options.plotpolicyfun   = 'N';              % If Y, plot policy functions
     eq                      = solve_eq(param,glob,options);
 end
 
+% Compute momnets
+ind_c = 1 - eq.v.ind;
+freqpricechange = eq.L'*ind_c;
+
+
+% vC = reshape(eq.v.vC,glob.nf(1),glob.nf(2));
+% vK = reshape(eq.v.vK,glob.nf(1),glob.nf(2));
+% figure
+% subplot(1,2,1)
+% plot(max(vC, vK))
+% subplot(1,2,1)
+% plot(max(vC, vK))
+
 save TEMP
 
 
 %% Reproduce Figure 1 of GS(2007)
-% COURTESY OF VIC
-v_range = nodeunif(100,exp(-0.5),exp(0.5));
-s_plot = gridmake(1,v_range);
+tmpgridnum      = 100;
+v_plot          = nodeunif(tmpgridnum,exp(-0.5),exp(0.5));
+s_plot          = gridmake(1,v_plot);
 
 % set up state space
-glob.Phi_V  = splibas(glob.vgrid0,0,glob.spliorder(2),s_plot(:,2));        % Used in Bellman / Newton computing expected values
-% begin by plotting the middle line:
-% price firm would pick if it can
-% costlessly adjust: v.Pc
-param.k         = 0;
-v_mid           = solve_valfunc_noagg(eq.c,s_plot,eq.Y,param,glob,options);
-% for each point in a, find price (lower and upper bound)
-% at which firm is indifferent between changing and keeping
-param.k       = 0.0025;     % turn the menu cost back on
-x_low = zeros(1,length(v_range));
-x_upp = zeros(1,length(v_range));
+glob.Phi_V      = splibas(glob.vgrid0,0,glob.spliorder(2),s_plot(:,2));        % Used in Bellman / Newton computing expected values
+glob.Phi_V      = splibas(glob.vgrid0,0,glob.spliorder(2),s_plot(:,2));        % Used in Bellman / Newton computing expected values
 
-for n=1:length(v_range)
-    % for the given level of a, set up the state space: lower bound
-    xl               = 1000;
-    x_plot_low       = nodeunif(xl,min(glob.pPgrid),v_mid.Xc(n));
-    x_plot_upp       = nodeunif(xl,v_mid.Xc(n),max(glob.xgrid));
-    x_plot           = [x_plot_low; x_plot_upp(2:end)];
-    x_plot_upp       = x_plot_upp(2:end);
-    s_plot          = gridmake(x_plot,v_range(n));
-    glob.Phi_nu     = splibas(glob.nugrid0,0,glob.spliorder(2),s_plot(:,2));
+% begin by plotting the middle line: price firm would pick if it can costlessly adjust: v.Pc
+options.MC      = 'N';      % Switch menu cost off
+tmp             = size(s_plot,1)/size(glob.P,2);
+glob.Emat       = kron(glob.P,speye(tmp));
+v_mid           = solve_valfunc_noagg(eq.c,s_plot,eq.Y,param,glob,options);
+
+% for each point in a, find price (lower and upper bound) at which firm is 
+% indifferent between changing and keeping
+options.MC      = 'Y';  % turn the menu cost back on
+pP_low          = zeros(1,length(v_plot));
+pP_upp          = zeros(1,length(v_plot));
+
+
+pPl             = 500;
+for n=1:length(v_plot)
+    % for the given level of v, set up the state space: lower bound
+    pP_plot_low = nodeunif(pPl,min(glob.pPgrid),v_mid.pPstar(n));    % v_mid.Xc(n)
+    pP_plot_upp = nodeunif(pPl,v_mid.pPstar(n),max(glob.pPgrid));      % v_mid.Xc(n)
+    pP_plot     = [pP_plot_low; pP_plot_upp(2:end)];
+    pP_plot_upp = pP_plot_upp(2:end);
+    s_plot      = gridmake(pP_plot,v_plot(n));
+    glob.Phi_V  = splibas(glob.vgrid0,0,glob.spliorder(2),s_plot(:,2));
 
     % compute lower/upper bounds on price
-    v           = solve_valfunc_GL(eq.c,s_plot,eq.cbar,param,glob,options,1);
-    dist        = abs(v.vc - v.vk);
-    [~,I_low]   = min(dist(1:xl));
-    x_low(n)    = x_plot_low(I_low);
-    [~,I_upp]   = min(dist(xl+1:end));
-    x_upp(n)    = x_plot_upp(I_upp);
+    v           = solve_valfunc_noagg(eq.c,s_plot,eq.Y,param,glob,options,1);
+    dist        = abs(v.vC - v.vK);
+    [~,I_low]   = min(dist(1:pPl));
+    pP_low(n)   = pP_plot_low(I_low);
+    [~,I_upp]   = min(dist(pPl+1:end));
+    pP_upp(n)   = pP_plot_upp(I_upp);
 end
 
 % make figure
 figure;
-plot(log(v_range),log(v_mid.Xc),'--','Color','k')
+plot(log(v_plot),log(v_mid.pPstar),'--','Color','k')
 hold on;
-plot(log(v_range),log(x_low),'LineWidth',2,'Color','b')
+plot(log(v_plot),log(pP_low),'LineWidth',2,'Color','b')
 hold on;
-plot(log(v_range),log(x_upp),'LineWidth',2,'Color','b')
-%set(gca,'Xlim',[-0.5 0.5])
-
-%set(gca,'Ylim',[-0.3 0.4])
+plot(log(v_plot),log(pP_upp),'LineWidth',2,'Color','b')
 
 grid on;
-xlabel('Log Productivity')
-ylabel('Log Real Price')
-
-% MY OLD VERSION
-%{
-% UP TO HERE!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-% FIX: need to find the boundaries of the 'active' and 'inactive' region.
-Nv           = 50;
-vgridlongtmp = nodeunif(Nv,glob.vgrid0(1),glob.vgrid0(end));  % Adds curvature
-s_eval       = gridmake(glob.pPgridf,vgridlongtmp);
-
-% Can interpolate for ANY state vector if function is given
-interp_vK    = funfitxy(glob.fspace,glob.sf,eq.v.vK); 
-interp_vC    = funfitxy(glob.fspace,glob.sf,eq.v.vC); 
-interp_funcs = funeval([interp_vK, interp_vC],glob.fspace,s_eval);
-vK           = reshape(interp_funcs(:,1), length(glob.pPgridf), Nv);
-vC           = reshape(interp_funcs(:,2), length(glob.pPgridf), Nv);
-vmax = bsxfun(@max,vK,vC);
-figure
-for i = 1:length(vgridlongtmp)
-plot(glob.pPgridf,vmax(:,i))
-hold on
-end
+xlabel('Log Productivity','fontsize',12)
+ylabel('Log Real Price','fontsize',12)
 
 
-ind          = (interp_funcs(:,1) < interp_funcs(:,2));
-ind          = double(reshape(ind, length(glob.pPgridf), Nv));
+%% Compute impulse responses the GL way
+% Note: these impulses are created by hitting the money supply with an
+% unexpected shock in period 1, and then agents have perfect foresight over
+% the transition path that follows. 
 
-krn = [1 -1];
-for vv = 1:Nv
-   changes = conv(krn,ind(:,vv));
-   idx = find(changes==-1,1,'first');          % These are 1 --> 0 transitions (active to inactive)
-   if idx > 100
-       idx = 100;
-   end
-   upperbound(vv) = glob.pPgridf(idx); 
-   idx = find(changes==1,1,'last');          % These are 0 --> 1 transitions (inactive to active)
-   lowerbound(vv) = glob.pPgridf(idx);   
-end
+% Reset the model states, parameters, etc
+glob = setup_noagg(param,glob,options);
 
+options.numtrans    = 40;              % Number of transition periods
+options.damp        = 0.5;
+options.IRF         = 'Y';
+options.plotSD      = 'N';              % If Y plot steady state distribution
+options.eqprint     = 'Y';
+options.tolY        = 1e-4;
 
-% Plot the optimal price with no menu cost
-cE = eq.c(2*end/3+1:end);   
-B               = menufun('bounds',glob.sf,[],[],eq.Y,param,glob,options);
-options.MC      = 'N';      % Turn off the menu cost
-glob.Phi_V      = glob.Phi_Vf;
-obj             = @(pPstar)valfunc_noagg('C',cE,glob.sf,pPstar,eq.Y,param,glob,options);
-pPstar          = goldenx(obj,B(:,1),B(:,2));
-interp          = funfitxy(glob.fspace,glob.sf,pPstar); 
-pPstar          = funeval(interp,glob.fspace,s_eval);
-pPstar          = reshape(pPstar,length(glob.pPgridf),Nv);
+solve_IRF(eq,param,glob,options)
 
-figure(888)
-plot(log(vgridlongtmp), log(pPstar(1,:)),'linestyle','--')
-hold all
-plot(log(vgridlongtmp), log(upperbound),'linewidth',2)
-hold all
-plot(log(vgridlongtmp), log(lowerbound),'linewidth',2)
-xlabel('Log productivity, v')
-ylabel('Log relative price, p/w')
-legend('Optimal','Upper bound','Lower bound')
-
-%}
 
 
 
 
 %% AGGREGATE UNCERTAINTY
-
 param.cKS0 = [0.001; 0.5; 0.1];  % Initial guess for state evolution equation
 cKS        = param.cKS0;
 

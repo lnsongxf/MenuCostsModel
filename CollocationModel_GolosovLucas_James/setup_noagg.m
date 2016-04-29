@@ -13,6 +13,7 @@ function [glob] = setup_noagg(param,glob,options)
 %   - options   = options, including continuous vs. discrete Markov, Tauchen vs. Rouwenhurst, 
 %-------------------------------------------------
 
+fprintf('Setup\n');
 
 %% State space for idiosyncratic productivity
 % One persistent shock
@@ -92,6 +93,9 @@ glob.fspace     = fspace;           % function space object for the model
 glob.s          = s;                % full state space 
 glob.Ns         = Ns;               % size of full state space
 glob.s_prime    = s_prime;          % Adjusted for SS inflation
+
+%% 
+fprintf('Setup complete\n');
 
 end
 
