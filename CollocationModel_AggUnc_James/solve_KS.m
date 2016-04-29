@@ -23,7 +23,6 @@ function [c,v,cKS,R2,sim] = solve_KS(cKS,eq,param,glob,options)
 cKS0 = cKS;
 glob = setup_agg(param,glob,cKS0,options);
 
-
 %% Unpack
 ns          = size(glob.s,1); 
 T           = options.T;
@@ -37,8 +36,8 @@ cold        = [cKold;cCold;cEold];
 
 %% Solve value function problem
 % Define equilibrium output and price
-glob.P      = eq.P;     %%%% DEBUG
-glob.Y      = eq.Y;     %%%% DEBUG
+% glob.P      = eq.P;     %%%% DEBUG
+% glob.Y      = eq.Y;     %%%% DEBUG
 [c,v]       = solve_cKS(cold,cKS0,param,glob,options);   % Get new val func approx coefficients
 
 %% Set up simulations

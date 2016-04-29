@@ -96,9 +96,13 @@ v               = solve_valfunc_noagg(c,sf,Y,param,glob,options,1);
 % Compute stationary distribution
 pPdist           = min(v.pPdist,max(pPgrid))*(1/exp(param.mu));
 fspaceergpP      = fundef({'spli',glob.pPgridf,0,1});
-QpP              = funbas(fspaceergpP,pPdist);
+QpK              = funbas(fspaceergpP,pPdist(1:end/2));
+QpC              = funbas(fspaceergpP,pPdist(end/2+1:end));
 QA              = glob.QA;
-Q               = dprod(QA,QpP);
+QK               = dprod(QA,QpK);
+QC               = dprod(QA,QpC);
+Q              = [param.lambda*QK, (1-param.lambda)*QK; (1-param.lambda)*QC, param.lambda*QC];
+
 
 % [vv,dd]         = eigs(Q');
 % dd              = diag(dd);
@@ -139,13 +143,17 @@ eq.Q    = Q;
 eq.gYfun = gYfun;
 
 %% Plot stationary distribution
+JpP  = numel(glob.pPgridf);
+Ja  = numel(glob.agridf);
+La  = kron(eye(Ja),ones(1,2*JpP))*L;
+LpP  = kron(ones(1,Ja),eye(2*JpP))*L;
+eq.LpP   = LpP;
+eq.La   = La;
+    
 if strcmp(options.plotSD,'Y');
     H = figure(options.fignum);
     %     set(H,'Pos',[1          35        1920         964]);
-    JpP  = numel(glob.pPgridf);
-    Ja  = numel(glob.agridf);
-    La  = kron(eye(Ja),ones(1,JpP))*L;
-    LpP  = kron(ones(1,Ja),eye(JpP))*L;
+    
     % Marginal prices
     subplot(2,2,1);
     plot(glob.pPgridf,LpP,'o-');title('Stationary Real Price Dist - LpP');
@@ -154,8 +162,7 @@ if strcmp(options.plotSD,'Y');
     subplot(2,2,2);
     plot(exp(glob.agridf),La,'o-');title('Stationary Prod Dist - La');
     grid on;
-    eq.LpP   = LpP;
-    eq.La   = La;
+
     % Joint (pP,A) - Surface plot
     subplot(2,2,4)
     Lmat    = reshape(L,JpP,Ja);
@@ -186,67 +193,49 @@ if strcmp(options.plotpolicyfun,'Y')
     
     valK = funbas(glob.fspace,glob.sf)*cK;
     valC = funbas(glob.fspace,glob.sf)*cC;
-    valtot = max(valK, valC);
+    valtot = param.lambda*valK + (param.lambda-param.lambda)*valC;
     valtot = reshape(valtot, length(glob.pPgridf), length(glob.agridf));
-        
-    pPdist = reshape(v.pPdist, length(glob.pPgridf), length(glob.agridf));
-    ind    = reshape(v.ind, length(glob.pPgridf), length(glob.agridf));
-    ystar  = reshape(v.ystar, length(glob.pPgridf), length(glob.agridf));
-    nstar  = reshape(v.nstar, length(glob.pPgridf), length(glob.agridf)); 
-    wPstar = reshape(v.wPstar, length(glob.pPgridf), length(glob.agridf));
-    
-    figure('units','normalized','outerposition',[0 0 1 1])
-    subplot(2,3,1)
-    plot(glob.pPgridf, valtot)
-    xlabel('Real price','fontsize',options.fontsize)
-    ylabel('Value','fontsize',options.fontsize)
-    set(gca, 'fontsize', options.fontsize)
-    legend('a_1','a_2','a_3','a_4','a_5')
-    subplot(2,3,2)
-    plot(glob.pPgridf, pPdist)
-    xlabel('Real price','fontsize',options.fontsize)
-    ylabel('Observed real price','fontsize',options.fontsize)
-    set(gca, 'fontsize', options.fontsize)
-    subplot(2,3,3)
-    plot(glob.pPgridf, ystar)
-    xlabel('Real price','fontsize',options.fontsize)
-    ylabel('Output','fontsize',options.fontsize)
-    set(gca, 'fontsize', options.fontsize)
-    subplot(2,3,4)
-    plot(glob.pPgridf, nstar)
-    xlabel('Real price','fontsize',options.fontsize)
-    ylabel('Labour demand','fontsize',options.fontsize)
-    set(gca, 'fontsize', options.fontsize)
-    subplot(2,3,5)
-    plot(glob.pPgridf, wPstar)
-    xlabel('Real price','fontsize',options.fontsize)
-    ylabel('Real wage','fontsize',options.fontsize)
-    set(gca, 'fontsize', options.fontsize)    
-    
-    
+
+    pPdistK = reshape(v.pPdist(1:end/2), length(glob.pPgridf), length(glob.agridf));
+    pPdistC = reshape(v.pPdist(end/2+1:end), length(glob.pPgridf), length(glob.agridf));
+%     ind    = reshape(v.ind, length(glob.pPgridf), length(glob.agridf));
+    ystarK  = reshape(v.ystar(1:end/2), length(glob.pPgridf), length(glob.agridf));
+    ystarC  = reshape(v.ystar(end/2+1:end), length(glob.pPgridf), length(glob.agridf));
+    nstarK  = reshape(v.nstar(1:end/2), length(glob.pPgridf), length(glob.agridf)); 
+    nstarC  = reshape(v.nstar(end/2+1:end), length(glob.pPgridf), length(glob.agridf)); 
     
     figure(111)
     subplot(2,2,1)
-    plot(glob.pPgridf, valtot(:,3),'linewidth',3,'color','k')
+    plot(glob.pPgridf, valtot(:,3),'linewidth',3,'color','b')
 %     grid on
-    ylim([51.4,51.8])
+%     ylim([51.4,51.8])
+    legend('V = \lambda V^K + (1-\lambda)V^C','location','SouthEast')
     xlabel('Ex-ante real price','fontsize',options.fontsize)
     ylabel('Value function','fontsize',options.fontsize)
     set(gca, 'fontsize', options.fontsize)
     subplot(2,2,2)
-    plot(glob.pPgridf, pPdist(:,3),'linewidth',3,'color','k')
+    plot(glob.pPgridf, pPdistK(:,3),'linewidth',3,'color','b')
+    hold on
+    plot(glob.pPgridf, pPdistC(:,3),'linewidth',3,'color','r','linestyle','--')
+    legend('Keep price','Change price','location','SouthEast')
 %     grid on
     xlabel('Ex-ante real price','fontsize',options.fontsize)
     ylabel('Ex-post real price','fontsize',options.fontsize)
     set(gca, 'fontsize', options.fontsize)
     subplot(2,2,3)
-    plot(glob.pPgridf, ystar(:,3),'linewidth',3,'color','k')
+    plot(glob.pPgridf, ystarK(:,3),'linewidth',3,'color','b')
+    legend('Keep price','Change price','location','NorthEast')
+    hold on
+    plot(glob.pPgridf, ystarC(:,3),'linewidth',3,'color','r','linestyle','--')
 %     grid on
     xlabel('Ex-ante real price','fontsize',options.fontsize)
     ylabel('Output','fontsize',options.fontsize)
     set(gca, 'fontsize', options.fontsize)
     subplot(2,2,4)
-    plot(glob.pPgridf, nstar(:,3),'linewidth',3,'color','k')
+    plot(glob.pPgridf, nstarK(:,3),'linewidth',3,'color','b')
+    hold on
+    plot(glob.pPgridf, nstarC(:,3),'linewidth',3,'color','r','linestyle','--')
+    legend('Keep price','Change price','location','NorthEast')
 %     grid on
     xlabel('Ex-ante real price','fontsize',options.fontsize)
     ylabel('Labour demand','fontsize',options.fontsize)

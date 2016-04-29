@@ -3,15 +3,15 @@ function [cKS,R2,sim] = simulate_KS(c,v,eq,param,glob,options)
 T           = options.T;
 
 % Distribution over states
-Lt          = zeros(glob.nf(1)*glob.nf(2),T);
+Lt          = zeros(2*glob.nf(1)*glob.nf(2),T);
 Lt(:,1)     = eq.L;         % Set initial distribution at no agg. uncertainty stationary dist
 
 % Policy functions 
-pPdist      = zeros(glob.nf(1)*glob.nf(2),T);
-ind         = zeros(glob.nf(1)*glob.nf(2),T);
+pPdist      = zeros(2*glob.nf(1)*glob.nf(2),T);
+% ind         = zeros(glob.nf(1)*glob.nf(2),T);
 
 % initial price states
-p_state     = zeros(glob.nf(1)*glob.nf(2),options.T);
+p_state     = zeros(2*glob.nf(1)*glob.nf(2),options.T);
 
 % Draw money growth shocks
 DMt         = zeros(T+1,1);  % Dmt = (1-rho)mu + rho Dmt-1 + epst 
@@ -91,8 +91,8 @@ fprintf('---------------------------------\n');
     Yt(t)           = Yout;
     Pt(t)           = Pout;    
     pi              = Pt(t)/Pt(t-1);
-    ind(:,t)        = v.ind;   
-    p_state(:,t)    = st(:,1);    % .*(1/pi);
+%     ind(:,t)        = v.ind;   
+    p_state(:,t)    = [st(:,1); st(:,1)];    % .*(1/pi);
     pPdist(:,t)     = v.pPdist;
     
     %% 4. Compute next period states [Np,Na,Nm,Ny]
@@ -101,10 +101,19 @@ fprintf('---------------------------------\n');
     
     pP              = max( min(v.pPdist,max(glob.pPgridf)), min(glob.pPgridf))*(1/pi); 
     fspaceergpP     = fundef({'spli',glob.pPgridf,0,1});   % Linear interpolant
-    QpP             = funbas(fspaceergpP,pP);
-    Ltnew           = dprod(glob.QA,QpP)'*Lt(:,t-1);
+    QpK              = funbas(fspaceergpP,pP(1:end/2));
+    QpC              = funbas(fspaceergpP,pP(end/2+1:end));
+    QK               = dprod(glob.QA,QpK);
+    QC               = dprod(glob.QA,QpC);
+    Q              = [param.lambda*QK, (1-param.lambda)*QK; (1-param.lambda)*QC, param.lambda*QC];
+    Ltnew           = Q'*Lt(:,t-1);
     Lt(:,t)         = Ltnew;
 
+    
+   
+    
+    
+    
     %% Plot paths
     if strcmp(options.simplot,'Y')
         figure(888);
@@ -143,7 +152,7 @@ R2     = stats(1);
 sim.Yt           = Yt;
 sim.Pt           = Pt;   
 sim.Lt           = Lt;
-sim.ind          = ind;   
+% sim.ind          = ind;   
 sim.p_state      = p_state;
 sim.pPdist       = pPdist;
 sim.DMt          = DMt;

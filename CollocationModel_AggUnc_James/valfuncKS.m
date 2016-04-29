@@ -20,7 +20,7 @@ switch flag
         
         % Compute flow payoff
         PI              = menufun('PIK',s,[],[],param,glob,options);       
-        Phi             = glob.Phi;
+        Phi             = funbas(glob.fspace,s);  % glob.Phi;
         v               = PI + param.beta*Phi*cE;
         
     case 'C'

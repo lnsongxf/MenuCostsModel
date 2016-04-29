@@ -40,7 +40,10 @@ pPdist = ind.*s(:,1) + (1-ind).*pPstar;    % distribution of real prices given s
 vE  = [];
 if (nargin<=6)  
     % Expected value function    
-    vE = glob.Emat*(dprod(ind, glob.Phiprime)*cK + dprod((1-ind), glob.Phiprime)*cC);
+%     vE          = glob.Emat*max(vK,vC);
+    s_prime     = [s(:,1)*(1/exp(param.mu)), s(:,2)];
+    Phiprime    = funbas(glob.fspace,s_prime);
+    vE = glob.Emat*(dprod(ind, Phiprime)*cK + dprod((1-ind), Phiprime)*cC);
 end
 
 % VIC DIFF: victoria computes the Phi matrix here again as

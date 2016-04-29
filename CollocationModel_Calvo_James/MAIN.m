@@ -1,44 +1,20 @@
 %------------------------------
-%   Includes aggregate uncertainty in this file 
 %
-%   Main file for collocation solution to the menu costs model in Terry and
-%   Knotek II (2008). 
+%   Main file for Calvo model solved via collocation. Based on similar code
+%   for the menu costs model in Terry and Knotek II. 
 %
 %   James Graham
-%   3/6/2016
+%   4/22/2016
 %
 %   Based on original code by Simon Mongey (NYU, 2015)
-%--------------------------------
-%
-%   THINGS TO DO
-%   - NOTE: I think one reason things are going wrong is that we're not
-%   accounting for steady state money growth in the no-aggregate
-%   uncertainty case. Since money is growth at rate mu, need to adjust the
-%   price tomorrow by that rate...
-%   - TOTALLY REWRITE SIMULATIONS. Need to actually track people over time,
-%   using 5000 firms. This way, get an actual distribution of firms rather
-%   than the distribution implied by the grid (which is computed inside the value function
-%   solver). Simon's method for this doesn't seem to work. He doesn't
-%   actually compute the equilibrium at each period, t. And he doesn't
-%   allow for aggregate uncertainty. 
-%   - Once simulations are rewritten, then can code the IRFs. Follows
-%   exactly the same code as the simulation except with deterministic
-%   money growth shocks  that follow the money IRF path. 
-%   - Add option for Tauchen productivity grid
-%   - Possibly figure out Rouwenhurst VAR?
-%   - Compute IRFs using Terry's version (doesn't require continuous shocks?)
-%   - Compute model moments
-%   - Tidy up code significantly. Get rid of rednundant files. Add more
-%   comments
-%   - Figure out what the correct value of delta should be
 
 %% 
 
-cd('E:\Dropbox\Economics\2015_2016_material\AdvMacro_Midrigan\TermPaper\MenuCostsModel\CollocationModel_AggUnc_James')
+cd('E:\Dropbox\Economics\2015_2016_material\AdvMacro_Midrigan\TermPaper\MenuCostsModel\CollocationModel_Calvo_James')
 p = genpath('E:\Dropbox\Economics\Matlab_codes\CompEcon');
 addpath(p);
 
-% cd('C:\Users\James\Dropbox\economics\2015_2016_material\AdvMacro_Midrigan\TermPaper\MenuCostsModel\CollocationModel_AggUnc_James')
+% cd('C:\Users\James\Dropbox\economics\2015_2016_material\AdvMacro_Midrigan\TermPaper\MenuCostsModel\CollocationModel_Calvo_James')
 % p = genpath('C:\Users\James\Dropbox\Economics\Matlab_codes\CompEcon');
 % addpath(p);
 
@@ -59,9 +35,6 @@ options.irf         = 'N';      % Solve IRFs
 
 % Model options 
 options.discmethod     = 'R';      % If 'T' use Tauchen, if 'R' use Rouwenhurst
-
-% [NOT NEEDED HERE - PERHAPS CHANGE OPTIONS]
-options.MC          = 'Y';        % If 'N' then menu costs are zero
 
 % Compute stationary distribution?
 options.stationarydist  ='N';   % Don't compute stationary distribution for aggregate uncertainty case
@@ -119,7 +92,8 @@ param.Phicost   = 0.156;    % menu cost in labour units
 param.mu        = 0.006;    % s.s money growth
 param.rhom      = 0.37;     % persistence of money growth
 param.sigmaeps  = 0.0048;   % stddev of money growth shocks
-param.lambda    = 0.75;     % Calvo probability of keeping price
+param.lambda    = 1-0.3070; % Calvo probability of keeping price
+options.MC      = 'N';      % No menu cost in the Calvo model
 
  %% NO AGGREGATE UNCERTAINTY
 
@@ -129,14 +103,14 @@ glob = setup_noagg(param,glob,options);
 %% Solve value function approx coefficients and stationary distribution for a given output Y
 
 if strcmp(options.solvecL,'Y');
-    options.plotpolicyfun = 'Y';      % If Y, plot policy functions
+    options.plotpolicyfun = 'N';      % If Y, plot policy functions
     Y                   = 0.8416;  % Conjectured value of output, Y
     options.cresult     = [];   % Holds previous solution for c. Empty in this case.
     eq                  = solve_cL(Y,param,glob,options);
     glob.c              = eq.c;
 %     fprintf('Yin = %1.2f,\tYout = %1.2f\n',Y,eq.Y);
 %     fprintf('Pin = %1.2f,\tPout = %1.2f\n',1,eq.P);
-    fprintf('--------------------------------------');
+    fprintf('--------------------------------------\n');
 end
 
 %% Solve equilibrium
@@ -148,132 +122,62 @@ if strcmp(options.solveeq,'Y');
     options.eqprint         = 'Y';
     options.print           = 'N';
     options.Loadc           = 'Y';              % For new guess of p use old c as starting guess
-    options.plotSD          = 'Y';              % If Y plot steady state distribution
+    options.plotSD          = 'N';              % If Y plot steady state distribution
     options.plotpolicyfun   = 'N';            % If Y, plot policy functions
     eq                      = solve_eq(param,glob,options);
 end
 
 figure;
-plot(glob.pPgridf,eq.LpP,'-o','color','k')
+plot(glob.pPgridf,eq.LpP(1:end/2),'-o','color','k')
+% hold all
+% plot(glob.pPgridf,eq.LpP(end/2+1:end),'-o','color','r')
 grid on
+% legend('Keep price','Change price')
 xlabel('Real price','fontsize',options.fontsize)
 ylabel('Density','fontsize',options.fontsize)
 set(gca,'fontsize',options.fontsize)
 
 
-%% Reproduce Figure 1 of GS(2007)
-tmpgridnum      = 200;
-a_plot          = nodeunif(tmpgridnum,exp(-0.5),exp(0.5));
-s_plot          = gridmake(1,a_plot);
-
-% set up state space
-glob.Phi_A      = splibas(glob.agrid0,0,glob.spliorder(2),s_plot(:,2));        % Used in Bellman / Newton computing expected values
-
-% begin by plotting the middle line: price firm would pick if it can costlessly adjust: v.Pc
-options.MC      = 'N';      % Switch menu cost off
-tmp             = size(s_plot,1)/size(glob.P,2);
-glob.Emat       = kron(glob.P,speye(tmp));
-a_mid           = solve_valfunc_noagg(eq.c,s_plot,eq.Y,param,glob,options);
-
-% for each point in a, find price (lower and upper bound) at which firm is 
-% indifferent between changing and keeping
-options.MC      = 'Y';  % turn the menu cost back on
-pP_low          = zeros(1,length(a_plot));
-pP_upp          = zeros(1,length(a_plot));
-
-
-pPl             = 500;
-for n=1:length(a_plot)
-    % for the given level of v, set up the state space: lower bound
-    pP_plot_low = nodeunif(pPl,min(glob.pPgrid),a_mid.pPstar(n));    % v_mid.Xc(n)
-    pP_plot_upp = nodeunif(pPl,a_mid.pPstar(n),max(glob.pPgrid));      % v_mid.Xc(n)
-    pP_plot     = [pP_plot_low; pP_plot_upp(2:end)];
-    pP_plot_upp = pP_plot_upp(2:end);
-    s_plot      = gridmake(pP_plot,a_plot(n));
-    glob.Phi_A  = splibas(glob.agrid0,0,glob.spliorder(2),s_plot(:,2));
-
-    % compute lower/upper bounds on price
-    v           = solve_valfunc_noagg(eq.c,s_plot,eq.Y,param,glob,options,1);
-    dist        = abs(v.vC - v.vK);
-    [~,I_low]   = min(dist(1:pPl));
-    pP_low(n)   = pP_plot_low(I_low);
-    [~,I_upp]   = min(dist(pPl+1:end));
-    pP_upp(n)   = pP_plot_upp(I_upp);
-end
-
-% Make figure
-x = log(a_plot);
-index = 1:1:length(x);
-y1 = log(pP_low);
-y2 = log(pP_upp);
-figure
-for i=1:length(y1)-1
-    h1 = fill(x(index([i i:i+1 i+1])),...        % Plot each polygon in turn
-        [y1(i) y2(i:i+1) y1(i+1)],...
-        [0.75,0.75,0.75],'EdgeColor','none');
-hold on
-end
-p1 = plot(log(a_plot),log(a_mid.pPstar),'LineWidth',2,'linestyle','--','Color','k');
-hold on;
-p2 = plot(log(a_plot),log(pP_low),'LineWidth',2,'Color','k');
-hold on;
-p3 = plot(log(a_plot),log(pP_upp),'LineWidth',2,'Color','k');
-ylim([-0.3,0.3])
-set(gca,'fontsize',options.fontsize)
-legend([p1,p2],'Optimal real price','Adjustment threshholds')
-xlabel('Log Productivity','fontsize',options.fontsize)
-ylabel('Log Real Price','fontsize',options.fontsize)
-
 %% Stationary model moments
 
 % Output: mean and standard deviation
-momNA.y_mean = eq.Y;
-momNA.y_std  = 0;
+momCalvo.y_mean = eq.Y;
+momCalvo.y_std  = 0;
 
 % inflation: mean and standard deviation
-momNA.pi_mean = exp(param.mu);
-momNA.pi_std  = 0;
+momCalvo.pi_mean = exp(param.mu);
+momCalvo.pi_std  = 0;
 
 % standard deviation of individual (real) prices
 % (not controlling for weights)
-momNA.price_mean = eq.L'*eq.v.pPdist;
-momNA.price_std = sqrt(eq.L'*(eq.v.pPdist - momNA.price_mean).^2);
+momCalvo.price_mean = eq.L'*eq.v.pPdist;
+momCalvo.price_std = sqrt(eq.L'*(eq.v.pPdist - momCalvo.price_mean).^2);
 
 % price_changes
-momNA.price_change = eq.v.pPdist - glob.sf(:,1);
-nonzero_price_change = momNA.price_change(momNA.price_change~=0);
-nonzero_price_change = abs(nonzero_price_change);
-nonzero_orig_price = glob.sf(momNA.price_change~=0,1);
-nonzero_L = eq.L(momNA.price_change~=0)/sum(eq.L(momNA.price_change~=0));   % Drop 0 change, then re-normalize dist
+price_change = eq.v.pPdist - [glob.sf(:,1); glob.sf(:,1)];
+nonzero_price_change = abs(price_change(price_change~=0));
+nonzero_orig_price = [glob.sf(:,1); glob.sf(:,1)];
+nonzero_orig_price = nonzero_orig_price(price_change~=0);
+nonzero_L = eq.L(price_change~=0)/sum(eq.L(price_change~=0));   % Drop 0 change, then re-normalize dist
 
 % mean absolute size of price change
-momNA.avg_abs_price_change = nonzero_L'*(nonzero_price_change./nonzero_orig_price);
-momNA.std_abs_price_change = sqrt(nonzero_L'*...
-    (nonzero_price_change./nonzero_orig_price - momNA.avg_abs_price_change).^2);
+momCalvo.avg_abs_price_change = nonzero_L'*(nonzero_price_change./nonzero_orig_price);
+momCalvo.std_abs_price_change = sqrt(nonzero_L'*...
+    (nonzero_price_change./nonzero_orig_price - momCalvo.avg_abs_price_change).^2);
 
 % mean price increase, sd new prices
-momNA.price_increase_ind      = (momNA.price_change>0);
-momNA.dist_pr_inc             = eq.L.*momNA.price_increase_ind;
-momNA.dist_pr_inc             = momNA.dist_pr_inc./sum(momNA.dist_pr_inc,1); % Normalize columns to sum to 1
+momCalvo.price_increase_ind      = (momCalvo.price_change>0);
+momCalvo.dist_pr_inc             = eq.L.*momCalvo.price_increase_ind;
+momCalvo.dist_pr_inc             = momCalvo.dist_pr_inc./sum(momCalvo.dist_pr_inc,1); % Normalize columns to sum to 1
 
-momNA.log_price_increase      = log(momNA.price_change.*momNA.price_increase_ind);
-momNA.pr_log_price_increase   = momNA.log_price_increase.*momNA.dist_pr_inc;
-momNA.avg_log_price_increase  = nansum(momNA.pr_log_price_increase,1);
+momCalvo.log_price_increase      = log(momCalvo.price_change.*momCalvo.price_increase_ind);
+momCalvo.pr_log_price_increase   = momCalvo.log_price_increase.*momCalvo.dist_pr_inc;
+momCalvo.avg_log_price_increase  = nansum(momCalvo.pr_log_price_increase,1);
 
 % frequency of price change
-momNA.dist_price_change       = eq.L.*(1-eq.v.ind);
-momNA.freq_price_change       = sum(momNA.dist_price_change,1);
-momNA.avg_duration_prices     = 1/momNA.freq_price_change;
-
-% standard deviation of new prices
-% avg_price_t             = sum(bsxfun(@times,sim.Lt,log(sim.p_state)),1);
-% prices_increased        = sim.p_state.*price_increase_ind;
-% prices_increased(prices_increased==0)=NaN; 
-% prices_increased        = log(prices_increased);
-% log_dev_prices_inc      = bsxfun(@minus,prices_increased,avg_price_t);
-% sd_new_prices           = nanstd(log_dev_prices_inc,1);
-% mean(sd_new_prices(20:end))
-
+momCalvo.dist_price_change       = eq.L.*(1-eq.v.ind);
+momCalvo.freq_price_change       = sum(momCalvo.dist_price_change,1);
+momCalvo.avg_duration_prices     = 1/momCalvo.freq_price_change;
 
 
 
@@ -291,8 +195,7 @@ options.T           = 96;       % Length of simulation period
 options.T_KSiter    = 25;       % simulations for computing forecasting coeffs
 options.tolKS       = 1e-4;     % Convergence criterion for norm of CKS params
 options.KSsim       = 1;        % Number of simulations to average over for KS 
-cKS0                = [-0.05; 0.7; 0.25]; % Initialize KS coeffs
-% cKS0                = [0.5; 0.1; 0.1]; % Initialize KS coeffs
+cKS0                = [-0.0164; 0.8863; 0.9784]; % Initialize KS coeffs
 
 for KSiter = 1:options.T_KSiter
     
@@ -346,18 +249,13 @@ momA.price_std = std(sim.pPdist(:,2:end),1);
 
 % price_changes
 momA.price_change = sim.pPdist - sim.p_state;
-for t = 2:options.T
-    nonzero_price_change = momA.price_change(momA.price_change(:,t)~=0,t);
-    nonzero_price_change = abs(nonzero_price_change);
-    nonzero_orig_price = glob.sf(momA.price_change(:,t)~=0,1);
-    nonzero_L = sim.Lt(momA.price_change(:,t)~=0,t)/...
-        sum(sim.Lt(momA.price_change(:,t)~=0,t));   % Drop 0 change, then re-normalize dist
-    momA.avg_abs_price_change(t) = nonzero_L'*(nonzero_price_change./nonzero_orig_price);
-    momA.std_abs_price_change(t) = sqrt(nonzero_L'*...
-        (nonzero_price_change./nonzero_orig_price - momA.avg_abs_price_change(t)).^2);
-end
-momA.avg_abs_price_change = mean(momA.avg_abs_price_change(2:end));    
-momA.std_abs_price_change = mean(momA.std_abs_price_change(2:end));
+
+% mean absolute size of price change
+tmp1 = sim.Lt'*(abs(momA.price_change)./sim.p_state);
+momA.avg_abs_price_change = nanmean(diag(tmp1))*100;
+tmp2 = sim.Lt'*...
+    (abs(momA.price_change)./sim.p_state - repmat(diag(tmp1)',2500,1)).^2;
+momA.std_abs_price_change = nanmean(sqrt(diag(tmp2)))*100;
 
 % mean price increase, sd new prices
 momA.price_increase_ind      = (momA.price_change>0);
@@ -394,12 +292,13 @@ mean(momA.sd_new_prices(20:end))
 
 options.irf         = 'Y';
 options.simplot     = 'N';  
-options.T           = 50;
+options.T = 50; 
+glob = setup_agg(param,glob,cKS,options);
+
 % Get stationary distribution in KS
 eq.Y = mean(sim.Yt); 
 eq.L = mean(sim.Lt,2);
 eq.pi = mean(sim.Pt(2:end)./sim.Pt(1:end-1));
-glob = setup_agg(param,glob,cKS,options);
 [~,~,sim] = simulate_KS(c,v,eq,param,glob,options);
 
 % Re-run using stationary eqm values from KS as starting points
@@ -407,59 +306,30 @@ options.simplot     = 'Y';
 eq.Y = sim.Yt(end); 
 eq.L = sim.Lt(:,end);
 tmp = mean(sim.Pt(2:end)./sim.Pt(1:end-1));
-eq.pi = tmp(1);
+eq.pi = tmp(end);
 [~,~,sim] = simulate_KS(c,v,eq,param,glob,options);
 
 
-figure(102);
+figure;
 subplot(1,3,1)
-plot((sim.DMt(1:20) - exp(param.mu))/exp(param.mu)*100, 'linewidth',2,'color','k');
+plot((sim.DMt(1:20) - exp(param.mu))/exp(param.mu)*100, 'linewidth',2);
 grid on
-title('Money growth')
+title('\Delta M_t IRF')
 ylabel('% deviation from trend')
-set(gca,'fontsize',options.fontsize)
 subplot(1,3,2)
-plot((sim.Yt(1:20)-eq.Y)/eq.Y*100, 'linewidth',2,'color','k');
+plot((sim.Yt(1:20)-eq.Y)/eq.Y*100, 'linewidth',2);
 grid on
-title('Output gap')
+title('Y_t IRF')
 ylabel('% deviation from trend')
-set(gca,'fontsize',options.fontsize)
 subplot(1,3,3)
-pisim = log(sim.Pt(2:20)./sim.Pt(1:20-1));
-plot( 400*(pisim - pisim(1)), 'linewidth',2,'color','k');
+pisim = sim.Pt(2:20)./sim.Pt(1:20-1);
+plot( 400*(pisim - eq.pi)/eq.pi, 'linewidth',2);
 grid on
-title('Inflation')
+title('\pi_t IRF')
 ylabel('% deviation from trend (Annualized)')
-set(gca,'fontsize',options.fontsize)
 
-%% Plot against Calvo model
+save('calvo.mat','sim')
 
-calvo = load('calvo');
+calvo = load('calvo')
 
-figure(103);
-subplot(1,3,1)
-plot((sim.DMt(1:20) - exp(param.mu))/exp(param.mu)*100, 'linewidth',2,'color','k');
-grid on
-title('Money growth')
-ylabel('% deviation from trend')
-set(gca,'fontsize',options.fontsize)
-subplot(1,3,2)
-plot((calvo.sim.Yt(1:20)-calvo.sim.Yt(1))/calvo.sim.Yt(1)*100, 'linewidth',2,'color','r');
-hold on
-plot((sim.Yt(1:20)-eq.Y)/eq.Y*100, 'linewidth',2,'color','k','linestyle','--');
-grid on
-title('Output gap')
-ylabel('% deviation from trend')
-set(gca,'fontsize',options.fontsize)
-subplot(1,3,3)
-pisim = log(sim.Pt(2:20)./sim.Pt(1:20-1));
-calvopisim = log(calvo.sim.Pt(2:20)./calvo.sim.Pt(1:20-1));
-plot( 400*(calvopisim - calvopisim(1)), 'linewidth',2,'color','r');
-hold on
-plot( 400*(pisim - pisim(1)), 'linewidth',2,'color','k','linestyle','--');
-grid on
-legend('Calvo','Menu costs')
-title('Inflation')
-ylabel('% deviation from trend (Annualized)')
-set(gca,'fontsize',options.fontsize)
-
+load('TEMP')
