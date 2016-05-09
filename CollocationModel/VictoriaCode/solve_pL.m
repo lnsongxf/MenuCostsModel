@@ -65,7 +65,7 @@ v               = solve_valfunc_menucost(c,sf,Y,param,glob,options);
 
 %% Compute stationary distribution
 %  NOTE (VG): I think he's avoiding policies off the max of the grid
-Pp              = min(v.Pp,max(pgrid));     
+Pp              = min(v.Pp,max(pgrid)).*1/(exp(param.mu));     
 fspaceergp      = fundef({'spli',glob.pgridf,0,1});
 QP              = funbas(fspaceergp,Pp); 
 QA              = glob.QA;
@@ -92,16 +92,19 @@ end
 
 %% Compute aggregates
 
-Pa = (L'*((v.Pp).^(1-param.theta))).^(1/(1-param.theta));
-Ca = 1/Pa;
+% Pa = (L'*((v.Pp).^(1-param.theta))).^(1/(1-param.theta));
+% Ca = 1/Pa;
+
+G_Y = (L'*((v.Pp).^(1-param.theta))).^(1/(1-param.theta)) - 1;
 
 %% Pack-up output
 eq.v    = v;
 eq.c    = c;
 eq.L    = L;
-eq.Pa   = Pa;
-eq.Ca   = Ca;
+% eq.Pa   = Pa;
+% eq.Ca   = Ca;
+eq.G_Y  = G_Y;
 eq.Q    = Q;
-eq.Y    = Ca;
+eq.Y    = Y;
 
 end

@@ -6,7 +6,7 @@ a           = s(:,2);
 F           = menufun_menucosts('change',[p,a],pp,Y,param,glob,options);
 %__________________________________________________________________________
 % Create basis matrices for continuation value
-Phi_Pp      = splibas(glob.pgrid0,0,glob.spliorder(1),pp);
+Phi_Pp      = splibas(glob.pgrid0,0,glob.spliorder(1),pp*1/exp(param.mu));
 Phi_PpA     = dprod(glob.Phi_A,Phi_Pp);    
 %__________________________________________________________________________
 % Compute value
