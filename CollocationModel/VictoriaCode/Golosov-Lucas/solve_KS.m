@@ -21,7 +21,8 @@ function [c,v,KS_coeffs,R2,paths] = solve_KS(cKS,eq,param,glob,options)
     
     % first draw inflation shocks: discrete
     rng(219);
-    pi_sim      = param.mu + randsample(glob.supp_e,options.T,true,glob.f);
+    %pi_sim      = param.mu + randsample(glob.supp_e,options.T,true,glob.f);
+    pi_sim       = param.mu + normrnd(0,param.sigmam,[options.T,1]);
     
     % simulate and get coefficients
     [KS_coeffs, R2, paths] = simulate_KS(pi_sim,c,v,cKS,eq,param,glob,options);

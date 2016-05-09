@@ -26,7 +26,7 @@ function [v,jac] = solve_valfunc_GL(c,s,cbar,param,glob,options,xxx)
         % to account for other grid sizes, need to find length of x grid
         xgrid   = s(s(:,2)==s(1,2),1); 
         xlength = size(xgrid,1);
-        ve = kron(glob.Nu,speye(xlength))*maxval;
+        ve = kron(glob.Nu,speye(xlength))*(dprod((1-Is),glob.Phi)*ck + dprod((Is),glob.Phi)*cc);
         v.ve    = ve;
     end
 

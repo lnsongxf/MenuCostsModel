@@ -19,32 +19,32 @@ for tt = (1:options.itermaxY)
     options.cresult = eq.c;         % Save to use as starting guess
     % 3. Record output and print
     Yinvec(tt)      = Y;
-    Youtvec(tt)     = eq.Y;
+    Youtvec(tt)     = eq.G_Y;
     if strcmp(options.eqprint,'Y') 
-        fprintf('%2i. Yin:\t%2.6f\tYout:\t%2.6f\tt:%2.1f\n',tt,Y,eq.Y,toc(tictic));
+        fprintf('%2i. Yin:\t%2.6f\tdistance:\t%2.6f\tt:%2.1f\n',tt,Y,eq.G_Y,toc(tictic));
     end
     % 4. Set all flags
-    d               = Yinvec-Youtvec;
+    d               = 0-Youtvec;
     eq.flag.exist   = ~all(sign(d)==max(sign(d))); 
-    eq.flag.equi    = (abs(Yinvec(tt)-Youtvec(tt))<options.tolY);
-    eq.flag.down    = (Yinvec(tt)>Youtvec(tt));
-    eq.flag.up      = (Yinvec(tt)<Youtvec(tt));
+    eq.flag.equi    = (abs(0-Youtvec(tt))<options.tolY);
+    eq.flag.down    = (0<Youtvec(tt));
+    eq.flag.up      = (0>Youtvec(tt));
     % 5. Shift bounds
     Ylb             = (eq.flag.up)*Y    + (eq.flag.down)*Ylb;
     Yub             = (eq.flag.up)*Yub  + (eq.flag.down)*Y;
     % 6. Break if equilibrium
     if eq.flag.equi,break,end
     % 7. Plot option
-    if strcmp(options.eqplot,'Y') 
-       figure(888);       
-       subplot(2,2,3);
-       plot(Yinvec(Yinvec~=0),'bo','markersize',6,'markerfacecolor','b');hold on;grid on;
-       plot(Youtvec(Youtvec~=0),'ro','markersize',6,'markerfacecolor','r');
-       xlim([0,max(tt,12)]);
-       legend('Yin','Yout','Location','NorthEast');
-       title('Equilibrium');
-       drawnow;  
-    end
+%     if strcmp(options.eqplot,'Y') 
+%        figure(888);       
+%        subplot(2,2,3);
+%        plot(Yinvec(Yinvec~=0),'bo','markersize',6,'markerfacecolor','b');hold on;grid on;
+%        plot(Youtvec(Youtvec~=0),'ro','markersize',6,'markerfacecolor','r');
+%        xlim([0,max(tt,12)]);
+%        legend('Yin','Yout','Location','NorthEast');
+%        title('Equilibrium');
+%        drawnow;  
+%     end
 end
 
 

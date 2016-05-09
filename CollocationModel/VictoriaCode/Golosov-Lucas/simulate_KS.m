@@ -10,8 +10,16 @@ function [coeffs,R2,paths] = simulate_KS(pi_sim,c,v,cKS,eq,param,glob,options)
     pol_sim     = zeros(length(eq.L),options.T-1);
     I_sim       = zeros(length(eq.L),options.T-1);
     
-    % aggregate variable: C
+    % aggregate variables: C, Y, l, U, and P
     C_sim       = zeros(1,options.T);
+    Y_sim       = zeros(1,options.T);
+    l_sim       = zeros(1,options.T);
+    U_sim       = zeros(1,options.T);
+    P_sim       = zeros(1,options.T);
+    
+    % wages
+    wage_level          = zeros(1,options.T);
+    wage_level(1)       = exp(pi_sim(1));
     
     %% simulation
     
@@ -54,8 +62,16 @@ function [coeffs,R2,paths] = simulate_KS(pi_sim,c,v,cKS,eq,param,glob,options)
 
         end
         
-        % update C
-        C_sim(t) = cout;
+        % update states
+        C_sim(t)      = cout;
+        pol_sim(:,t)  = v.Xp;
+        I_sim(:,t)    = v.Is;
+        Ctp           = C_sim(t).^(1-param.epsilon*param.gamma).*...
+                            (param.alpha.*v.Xp).^(-param.epsilon);
+        Y_sim(t)      = L_sim(:,t)'*(Ctp);
+        U_sim(t)      = v.Is'*L_sim(:,t);
+        l_sim(t)      = L_sim(:,t)'*(Ctp./st(:,2)) + param.k*U_sim(t);
+        P_sim(t)      = (L_sim(:,t)'*(param.alpha.*param.R.*wage_level(t).*v.Xp).^(1-param.epsilon)).^(1/(1-param.epsilon));
         
         % update distribution over individual states
         % construct Q_x
@@ -75,11 +91,12 @@ function [coeffs,R2,paths] = simulate_KS(pi_sim,c,v,cKS,eq,param,glob,options)
             fspaceerg     = fundef({'spli',glob.xgridf,0,1});
             
             % find what shock we're going to tomorrow
-            ind       = find(pi_sim(t+1) == glob.supp_e+param.mu);
-            Xp        = max(min(v.Xp,max(glob.xgridf)),min(glob.xgridf)).*...
-                        (1/exp(glob.supp_e(ind))).*(1/exp(param.mu));
-            Q_X           = funbas(fspaceerg,Xp); 
-            L_sim(:,t+1)  = dprod(glob.QNu,Q_X)'*L_sim(:,t);
+            %ind       = find(pi_sim(t+1) == glob.supp_e+param.mu);
+            Xp               = max(min(v.Xp,max(glob.xgridf)),min(glob.xgridf)).*...
+                                 (1/exp(pi_sim(t+1)-param.mu)).*(1/exp(param.mu));
+            Q_X              = funbas(fspaceerg,Xp); 
+            L_sim(:,t+1)     = dprod(glob.QNu,Q_X)'*L_sim(:,t);
+            wage_level(t+1)  = exp(log(wage_level(t)) + pi_sim(t+1));
             
         end
         
@@ -96,8 +113,14 @@ function [coeffs,R2,paths] = simulate_KS(pi_sim,c,v,cKS,eq,param,glob,options)
     R2     = stats(1);
     
     % packup the simulation paths
-    paths.logpi    = pi_sim(2:end);
+    paths.logpi    = pi_sim;
     paths.L        = L_sim;
     paths.C        = C_sim;
+    paths.pol      = pol_sim;
+    paths.I        = I_sim;
+    paths.Y        = Y_sim;
+    paths.l        = l_sim;
+    paths.U        = U_sim;
+    paths.P        = P_sim;
 
 end

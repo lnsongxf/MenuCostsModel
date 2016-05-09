@@ -14,10 +14,13 @@ cd '/Users/victoriagregory/Dropbox/MenuCostsModel/CollocationModel/VictoriaCode'
 
 %% Settings
 
-% What to solve for
+% What to solve for/do
 options.solvepL     = 'Y';      % Solve for p and L given a Y 
 options.solveeq     = 'Y';      % Solve equilibrium
 options.solveKS     = 'Y';      % Solve Krussel-Smith
+options.GLfig       = 'Y';      % (s,S) bands from Golosov-Lucas
+options.moments     = 'Y';      % Compute model moments
+options.IRF         = 'Y';      % Impulse responses
 
 % Tolerances, iterations
 options.Nbell       = 2;        % Number of Bellman (Contraction) iterations
@@ -47,10 +50,13 @@ param.theta     = 5;        % elasticity of substitution
 param.alpha     = 2/3;      % returns to labour
 param.rhoa      = 0.35;     % persistence of productivity
 param.sigmazeta = 0.225;    % stddev of productivity shocks
-param.Phi       = 0.156;    % menu cost in labour units
+%param.sigmazeta = 0.350;    % stddev of productivity shocks
+%param.Phi       = 0.3;    % menu cost in labour units
+param.Phi       = 0.156;      % menu cost in labour units
 param.mu        = 0.006;    % s.s money growth
 param.rhom       = 0.37;     % persistence of money growth
 param.sigmaeps  = 0.0048;   % stddev of money growth shocks
+%param.sigmaeps  = 0.003;   % stddev of money growth shocks
 param.tauc      = 0.005;    % tolerance for forecasting rule
 param.n         = 5000;     % number of firms
 param.T         = 96;       % simulation length
@@ -69,12 +75,12 @@ fprintf('Setup complete\n');
 %% Solve only p and L for a given output Y
 switch options.solvepL
     case 'Y'
-        Y                   = 0.9;    % Conjectured value of Y    
+        Y                   = 0.8;    % Conjectured value of Y    
         options.cresult     = [];   % Holds previous solution for c. Empty in this case.
         eq                  = solve_pL(Y,param,glob,options);  
-        fprintf('Yin = %1.2f,\tYout = %1.2f\n',Y,eq.Y);
-end
+        fprintf('Yin = %1.2f,\tYout = %1.2f\n',Y,eq.G_Y);
 eq.L'*eq.v.Pp
+end
 % plot(glob.sf(1:50,1)./(eq.Pa),eq.v.vf(1:50))
 % out=funbas(glob.fspace,glob.sf)*eq.c;
 % plot(glob.sf(350:400,1)./(eq.Pa),eq.v.vf(350:400),glob.sf(350:400,1)./(eq.Pa),out(350:400))
@@ -93,13 +99,14 @@ switch options.solveeq
         options.Loadc       = 'Y';              % For new guess of p use old c as starting guess
         options.plotSD      = 'N';              % If Y plot steady state distribution
         eq                  = solve_eq_menucost(param,glob,options); 
-end
+        
+        figure
+    L_reshape = reshape(eq.L,glob.nf(1),glob.nf(2));
+    density = sum(L_reshape,2);
+    plot(glob.pgridf,density)
+    plot(glob.pgridf,eq.v.vf(1:500),glob.pgridf,eq.v.vf(501:1000),glob.pgridf,eq.v.vf(1001:1500),glob.pgridf,eq.v.vf(1501:2000))
 
-figure
-L_reshape = reshape(eq.L,glob.nf(1),glob.nf(2));
-density = sum(L_reshape,2);
-plot(density)
-plot(glob.pgridf,eq.v.vf(1:500),glob.pgridf,eq.v.vf(501:1000),glob.pgridf,eq.v.vf(1001:1500),glob.pgridf,eq.v.vf(1501:2000))
+end
 
 %% Set up for Krussel-Smith
 
@@ -113,6 +120,7 @@ glob.spliorder  = [glob.spliorder(1),glob.spliorder(2),1,1];    % Order of splin
 cKS.b0     = 0.001;
 cKS.b1     = 0.5;
 cKS.b2     = 0.1;
+
 
 % Options
 options.print       = 'Y';
@@ -163,69 +171,12 @@ plot(glob.pgridf,vfs(1:glob.nf(1)));
 
 save temp;
 
-%% Replicate Figure 1 in Golosov-Lucas (2007)
+%% 
 
 load temp;
 
-% aggegate states at which to plot:
-% simulation means of m and Y
 m_mean = mean(paths.mt(20:options.T));
 Y_mean = mean(paths.Y(20:options.T));
-a_plot = nodeunif(100,min(glob.agrid),max(glob.agrid));
-s_plot = gridmake(1,a_plot,Y_mean,m_mean);
-
-% set up state space
-glob.Phi_A  = splibas(glob.agrid0,0,glob.spliorder(2),s_plot(:,2));
-glob.Phi_Y  = splibas(glob.Ygrid0,0,glob.spliorder(3),s_plot(:,3));
-glob.Phi_m  = splibas(glob.mgrid0,0,glob.spliorder(4),s_plot(:,4));
-
-% begin by plotting the middle line:
-% price firm would pick if it can
-% costlessly adjust: v.Pc
-param.Phi       = 0;
-v_mid           = solve_valfuncKS(c,s_plot,param,glob,options);
-
-% for each point in a, find price (lower and upper bound)
-% at which firm is indifferent between changing and keeping
-param.Phi       = 0.156;     % turn the menu cost back on
-p_low = zeros(1,length(a_plot));
-p_upp = zeros(1,length(a_plot));
-
-for a=1:length(a_plot)
-    
-    % for the given level of a, set up the state space: lower bound
-    pl               = 1000;
-    p_plot_low       = nodeunif(pl,min(glob.pgrid),v_mid.Pc(a));
-    p_plot_upp       = nodeunif(pl,v_mid.Pc(a),max(glob.pgrid));
-    p_plot           = [p_plot_low; p_plot_upp(2:end)];
-    p_plot_upp       = p_plot_upp(2:end);
-    s_plot      = gridmake(p_plot,a_plot(a),Y_mean,m_mean);
-    glob.Phi_A  = splibas(glob.agrid0,0,glob.spliorder(2),s_plot(:,2));
-    glob.Phi_Y  = splibas(glob.Ygrid0,0,glob.spliorder(3),s_plot(:,3));
-    glob.Phi_m  = splibas(glob.mgrid0,0,glob.spliorder(4),s_plot(:,4));
-    
-    % compute lower/upper bounds on price
-    v           = solve_valfuncKS(c,s_plot,param,glob,options);
-    dist        = abs(v.vc - v.vk);
-    [~,I_low]   = min(dist(1:pl));
-    p_low(a)    = p_plot_low(I_low);
-    [~,I_upp]   = min(dist(pl+1:end));
-    p_upp(a)    = p_plot_upp(I_upp);
-    
-end
-
-% make figure
-figure;
-plot(log(a_plot),log(v_mid.Pc),'--','Color','k')
-hold on;
-plot(log(a_plot),log(p_low),'LineWidth',2,'Color','b')
-hold on;
-plot(log(a_plot),log(p_upp),'LineWidth',2,'Color','b')
-set(gca,'Xlim',[-0.5 0.5])
-set(gca,'Ylim',[-0.3 0.4])
-grid on;
-xlabel('Log Productivity')
-ylabel('Log Real Price')
 
 %% The graph: James' way
 
@@ -288,180 +239,353 @@ ylabel('Log Real Price')
 % legend('Optimal','Upper bound','Lower bound')
 
 
-%% to do: impluse responses, moments, GL parameterization
-
 %% model-generated moments
 
-% inflation: mean and standard deviation
-pi      = paths.P(2:options.T)./paths.P(1:options.T-1)-1;
-pi_mean = mean(pi(20:end));
-pi_std  = std(pi(20:end));
+switch options.moments
+    case 'Y'
 
-% standard deviation of optimal prices
-% (not controlling for weights)
-sd_prices = std(paths.pol(:,2:end),1);
+    % inflation: mean and standard deviation
+    pi      = paths.P(2:options.T)./paths.P(1:options.T-1)-1;
+    pi_mean = mean(pi(20:end));
+    pi_std  = std(pi(20:end));
+    fprintf('mean inflation: %1.4f\n',pi_mean);
+    fprintf('std. dev. inflation: %1.4f\n',pi_std);
 
-% price_changes
-price_change = paths.pol - paths.ps;
+    % price_changes
+    st = gridmake(glob.pgridf,glob.agridf);
+    price_change = bsxfun(@minus, paths.pol, st(:,1));
 
-% mean price increase, sd new prices
-price_increase_ind      = (price_change>0);
-dist_pr_inc             = paths.L.*price_increase_ind;
-dist_pr_inc_norm        = bsxfun(@rdivide, dist_pr_inc, sum(dist_pr_inc,1));
-log_price_increase      = log(price_change.*price_increase_ind);
-pr_log_price_increase   = log_price_increase.*dist_pr_inc_norm;
-avg_log_price_increase  = nansum(pr_log_price_increase,1);
-mean(avg_log_price_increase(20:end))
+    % mean price increase, sd new prices
+    price_increase_ind      = (price_change>0);
+    dist_pr_inc             = paths.L.*price_increase_ind;
+    dist_pr_inc_norm        = bsxfun(@rdivide, dist_pr_inc, sum(dist_pr_inc,1));
+    log_price_increase      = log(price_change.*price_increase_ind);
+    pr_log_price_increase   = log_price_increase.*dist_pr_inc_norm;
+    avg_log_price_increase  = nansum(pr_log_price_increase,1);
+    mean_log_price_stat     = mean(avg_log_price_increase(20:end));
 
-% frequency of price change
-dist_price_change       = bsxfun(@times,paths.L,paths.I);
-freq_price_change       = sum(dist_price_change,1);
-mean_freq_price_change  = mean(freq_price_change(20:options.T))
+    % frequency of price change
+    dist_price_change       = paths.L.*paths.I;
+    freq_price_change       = sum(dist_price_change,1);
+    mean_freq_price_change  = mean(freq_price_change(20:options.T));
+    fprintf('frequency of price change (monthly): %1.4f\n',mean_freq_price_change/3);
+    fprintf('monthly duration: %1.4f\n',-1/log(1-mean_freq_price_change/3));
+    
+    % proportion of price changes that are increases
+    dist_price_increase     = paths.L.*price_increase_ind;
+    freq_price_increase     = sum(dist_price_increase,1);
+    prop_increase           = freq_price_increase./freq_price_change;
+    prop_increase_stat      = mean(prop_increase(20:options.T));
+    fprintf('proportion increase: %1.4f\n',prop_increase_stat);
 
-% standard deviation of new prices
-avg_price_t             = sum(bsxfun(@times,paths.L,log(paths.ps)),1);
-prices_increased        = paths.ps.*price_increase_ind;
-prices_increased(prices_increased==0)=NaN; 
-prices_increased        = log(prices_increased);
-log_dev_prices_inc      = bsxfun(@minus,prices_increased,avg_price_t);
-sd_new_prices           = nanstd(log_dev_prices_inc,1);
-mean(sd_new_prices(20:end))
+    % standard deviation of new prices
+    avg_price_t             = sum(bsxfun(@times,paths.L,log(st(:,1))),1);
+    prices_increased        = bsxfun(@times, st(:,1), price_increase_ind);
+    prices_increased(prices_increased==0)=NaN; 
+    prices_increased        = log(prices_increased);
+    log_dev_prices_inc      = bsxfun(@minus,prices_increased,avg_price_t);
+    sd_new_prices           = nanstd(log_dev_prices_inc,1);
+    sd_new_prices_stat      = mean(sd_new_prices(20:end));
+    fprintf('std. dev. new prices: %1.4f\n',sd_new_prices_stat);
 
-
-%% impluse responses (look at how Simon does these...)
-
-% mean distribution over original simulation
-mean_L      = mean(paths.L(:,20:end),2);
-
-% distribution over idiosyncratic states
-L_sim       = zeros(length(mean_L),options.T);
-L_sim(:,1)  = mean_L;
-
-% policy functions
-pol_sim     = zeros(length(mean_L),options.T-1);
-I_sim       = zeros(length(mean_L),options.T-1);
-
-% initial price states
-p_state     = zeros(length(mean_L),options.T-1);
-
-% draw money growth shocks
-mt          = zeros(1,options.T);
-mt(1)       = param.mu;
-mt(2)       = mt(1);
-mt(3)       = mt(2) + param.sigmaeps;
-%rng(222);
-for t = 4:options.T;
-    mt(t) = param.mu*(1-param.rhom) + param.rhom*mt(t-1);
-    % keep from going outside the grid points:
-    mt(t) = max(min(mt(t),max(glob.mgrid)),min(glob.mgrid));
-end 
-
-% vectors for price level, money, output
-Minit       = 0;
-M_sim       = zeros(1,options.T);
-M_sim(1)    = Minit + mt(1);
-for t = 2:options.T
-    M_sim(t) = mt(t) + M_sim(t-1);
+    % average absolute size of price changes
+    price_change_pct        = abs(100.*bsxfun(@rdivide,price_change,st(:,1)));
+    price_change_ind        = (price_change~=0);
+    dist_pr_chg             = paths.L.*price_change_ind;
+    dist_pr_chg_norm        = bsxfun(@rdivide, dist_pr_chg, sum(dist_pr_chg,1));
+    price_change_pct_i      = price_change_pct.*price_change_ind;
+    price_change_pct_i(price_change_pct_i==0)=NaN; 
+    pr_price_change_pct_i   = price_change_pct_i.*dist_pr_chg_norm;
+    avg_abs_price_change    = nansum(pr_price_change_pct_i,1);
+    avg_abs_size_stat       = mean(avg_abs_price_change(20:end));
+    fprintf('average absolute size of change: %1.4f\n',avg_abs_size_stat);
+    
+    % std. dev. of absolute sizes
+    price_change_dev        = (price_change_pct - avg_abs_size_stat).^2;
+    price_change_pct_i_dev  = price_change_dev.*price_change_ind;
+    price_change_pct_i_dev(price_change_pct_i_dev==0)=NaN; 
+    pr_price_change_pct_i_dev   = price_change_pct_i_dev.*dist_pr_chg_norm;
+    var_abs_price_change    = nansum(pr_price_change_pct_i_dev,1);
+    std_abs_size_stat       = sqrt(mean(var_abs_price_change(20:end)));
+    fprintf('std.dev absolute size of change: %1.4f\n',std_abs_size_stat);
+    
+    % distribution of price changes
+    price_change_pct_all    = 100.*bsxfun(@rdivide,price_change,st(:,1));
+    changes = randsample(price_change_pct_all(:,end),10000,true,paths.L(:,end));
+    ksdensity(changes(changes~=0),'bandwidth',1.2)
+    fig_data_KT.changes = changes;
 end
-M_sim       = exp(M_sim);
-P_sim       = zeros(1,options.T+1);
-Y_sim       = zeros(1,options.T+1);
-P_sim(1)    = (1/Y_mean)*M_sim(1);
-Y_sim(1)    = M_sim(1)/P_sim(1);
 
-% simulate
+%% impluse responses
 
-%t=2;
-tictic = tic;
-for t = 2:options.T 
+switch options.IRF
+    case 'Y'
 
-    ylb    = 0.5*Y_sim(t-1);
-    yub    = 1.5*Y_sim(t-1);
-%   Yin    = (1/2)*(ylb+yub);
-    Pin    = P_sim(t-1);
-    Pout   = Pin;
-
-    for itery = 1:50;
-
-        Yin    = (1/2)*(ylb+yub);
-
-        % 1. define state vector
-        st     = gridmake(glob.pgridf,glob.agridf,Yin,mt(t));
-
-        % 2. for Y guess, deflate price distribution
-        pi     = Pout/P_sim(t-1);
-
-        % 3. create basis matrix for continuation values
-        glob.Phi_A  = splibas(glob.agrid0,0,glob.spliorder(2),st(:,2));
-        glob.Phi_Y  = splibas(glob.Ygrid0,0,glob.spliorder(3),st(:,3));
-        glob.Phi_m  = splibas(glob.mgrid0,0,glob.spliorder(4),st(:,4));
-
-        % 4. compute real price distribution from policy functions
-        v  = solve_valfuncKS(c,[st(:,1).*(1/pi) st(:,2:end)],param,glob,options);
-
-        % 5. Multiply by P_t guess to get nominal price distribution
-        nom_prices  = v.Pp.*Pin;
-
-        % 6. Use CES to aggregate price level
-        Pout        = (L_sim(:,t-1)'*(nom_prices.^(1-param.theta)))^(1/(1-param.theta));
-
-        % 7. Market clearing
-        Yout        = M_sim(t)./Pout;
-
-        % 8. Check convergence of Y
-        down        = (Yin>Yout); 
-        up          = (Yin<Yout);
-        ylb         = up*Yin + down*ylb;
-        yub         = up*yub + down*Yin;
-        if strcmp(options.eqprint,'Y') 
-             fprintf('%2i. yin:\t%2.6f\tyout:\t%2.6f\tt:%2.1f\n',itery,Yin,Yout,toc(tictic));
-        end
-%            if abs(Yout-Yin)<options.toly;fprintf('Solved\n');break;end;
-        if abs(Yout-Yin)<options.toly;break;end;
-%             Yin = 0.9*Yin + 0.1*Yout;
-
+    % draw money growth shocks: note lagged timing here to conform with
+    % timing of function simulate_KS.m
+    mt          = zeros(1,options.T+1);
+    mt(1)       = param.mu;
+    mt(2)       = param.mu;
+    mt(3)       = mt(1) + param.sigmaeps;
+    for t = 4:options.T+1;
+        mt(t) = param.mu*(1-param.rhom) + param.rhom*mt(t-1);
+        mt(t) = max(min(mt(t),max(glob.mgrid)),min(glob.mgrid));
+    end 
+    Minit       = 0;
+    M_sim       = zeros(1,options.T+1);
+    M_sim(1)    = Minit + mt(1);
+    M_sim(2)    = Minit + mt(1);
+    for t = 3:options.T+1
+        M_sim(t) = mt(t) + M_sim(t-1);
     end
+    M_sim       = exp(M_sim);
 
-    Y_sim(t)        = Yout;
-    P_sim(t)        = Pout;
-    pol_sim(:,t)    = v.Pp;
-    I_sim(:,t)      = v.Is;
-    p_state(:,t)    = st(:,1).*(1/pi);
-%   Pin - Pout
+    % compute steady state L, Y
+    [~,~,paths_IRF] = simulate_KS(mt,M_sim,c,v,cKS,eq,param,glob,options);
+    eq.L            = paths_IRF.L(:,end);
+    eq.Y            = paths_IRF.Y(end);
+    eq.v.Is         = paths_IRF.I(:,end);
+    eq.v.Pp         = paths_IRF.pol(:,end);
+    [~,~,paths_IRF] = simulate_KS(mt,M_sim,c,v,cKS,eq,param,glob,options);
+    Y_sim           = paths_IRF.Y;
+    P_sim           = paths_IRF.P;
 
-    % 9. Update distributions (is this right?)
-    fspaceerg     = fundef({'spli',glob.pgridf,0,1});
-    Pp            = max(min(v.Pp,max(glob.pgridf)),min(glob.pgridf));
-    Qp            = funbas(fspaceerg,Pp);
-    L_sim(:,t)    = dprod(glob.QA,Qp)'*L_sim(:,t-1);
+    % compute repricing rate along paths
+    reprice = sum(paths_IRF.L.*paths_IRF.I,1);
+
+    %% create figure
+
+    figure;
+
+    % output gap
+    subplot(3,1,1)
+    dev_Y = 100*(paths_IRF.Y - Y_sim(1))./Y_sim(1);
+    plot(-1:16,dev_Y(1:18),'LineWidth',2.5,'Color','k')
+    grid on;
+    xlabel('Quarters after shock','Interpreter','latex')
+    ylabel('Deviation from Trend (\%)','Interpreter','latex')
+    title('Output','Interpreter','latex','FontSize',20)
+    %set(gca,'Ylim',[0 .6])
+    set(gca,'Xlim',[-1 16])
+
+    % inflation
+    subplot(3,1,2);
+    pi = paths_IRF.P(2:options.T-1)./paths_IRF.P(1:options.T-2)-1;
+    dev_pi = 100*(pi-param.mu)/param.mu;
+    plot(-1:16,dev_pi(1:18),'LineWidth',2.5,'Color','k')
+    grid on;
+    xlabel('Quarters after shock','Interpreter','latex')
+    ylabel('Deviation from Trend (\%)','Interpreter','latex')
+    title('Inflation','Interpreter','latex','FontSize',20)
+    set(gca,'Xlim',[-1 16])
+    
+    % aggregate labor
+    subplot(3,1,3)
+    dev_L = 100*(paths_IRF.Labor - paths_IRF.Labor(end))./paths_IRF.Labor(end);
+    plot(-1:16,dev_L(1:18),'LineWidth',2.5,'Color','k')
+    grid on;
+    xlabel('Quarters after shock','Interpreter','latex')
+    ylabel('Deviation from Trend (\%)','Interpreter','latex')
+    title('Employment','Interpreter','latex','FontSize',20)
+    set(gca,'Xlim',[-1 16])
+    %set(gca,'Ylim',[0 0.8])
+    hold off;
+    %saveas(gcf, '/Users/victoriagregory/Dropbox/Midrigan/TermPaper/irfs2_KT.eps', 'psc2');
 
 end
 
-%% create figure
+% save data for figure
+fig_data_KT.dev_Y = dev_Y;
+fig_data_KT.dev_pi = dev_pi;
+fig_data_KT.dev_L = dev_L;
+
+%% Monte Carlo simulations for hazard rates
+
+% first generate equilibrium paths for money, output
+% start from "stationary" distibution from above
+% take same shocks as original simulation
+mt              = paths.mt;
+M_sim           = paths.M;
+[~,~,paths_equ] = simulate_KS(mt,M_sim,c,v,cKS,eq,param,glob,options);
+
+% explicitly simulate firms
+N        = 10000;
+Y        = paths_equ.Y;
+paths_MC = simulate_MC(N,Y,mt,c,v,cKS,eq,param,glob,options);
+
+% extract the durations
+durations = [];
+for i = 1:N
+    policy_inv = abs(paths_MC.policy(i,:) - 1);
+    [pol n]    = RunLength(policy_inv);
+    durs       = pol.*n;
+    durs       = durs(1:end-1);     % cut off last spell to avoid censoring
+    durs       = durs(durs~=0);
+    durations  = [durations; durs'];
+end
+
+% empirical hazard function
+[xi hazard survival] = hazard_discrete(durations);
+figure;
+plot(xi(1:end-1),hazard(1:end-1)/3)
+
+% save hazard data for comparison
+haz_data.paths      = paths_MC;
+haz_data.durations  = durations;
+haz_data.xi         = xi;
+haz_data.hazard     = hazard;
+haz_data.surival    = survival;
+fname = sprintf('hazards_sp%1.3f_Phi%1.3f_sm%1.2e_th%1.0f.mat', param.sigmazeta, param.Phi, param.sigmaeps, param.theta);
+cd Hazards
+save(fname, 'haz_data')
+cd ..
+
+%% price trajectory of one guy
 
 figure;
-
-% output gap
-subplot(2,1,1)
-dev_Y = 100*(Y_sim - Y_mean)./Y_mean;
-plot(-1:12,dev_Y(1:14),'LineWidth',2,'Color','b')
+plot((2:49)./4,log(paths_MC.price_opt(71,1:48).*paths.P(1:48)),'LineWidth',2,'color',[0,0,0]+0.5)
+hold on;
+plot((1:48)./4,log(paths_MC.price(71,1:48).*paths.P(1:48)),'LineWidth',2.5,'Color','k')
+hold on;
+plot((1:48)./4,log(paths.P(1:48)),'LineWidth',2.5,'color',[0,0,0]+0.5,'LineStyle','--')
 grid on;
-xlabel('Quarters after shock')
-ylabel('Deviation from Trend (%)')
-title('Impulse Response: Output Gap')
-set(gca,'Ylim',[0 0.7])
-set(gca,'Xlim',[-1 12])
+xlabel('Years','FontSize',16,'Interpreter','latex')
+ylabel('Log Price','FontSize',16,'Interpreter','latex')
+h = legend('Optimal Price','Price','Price level');
+set(h,'Interpreter','latex','FontSize',14,'Location','Northwest')
+set(gca,'Xlim',[0 12])
+hold off;
+%saveas(gcf, '/Users/victoriagregory/Dropbox/Midrigan/TermPaper/price_sim_KT.eps', 'psc2');
+%plot(1:48,log(paths_MC.price(3,1:48).*paths.P(1:48)),2:49,log(paths_MC.price_opt(3,1:48).*paths.P(1:48)),1:48,log(paths.P(1:48)))
 
-% inflation
-subplot(2,1,2);
-pi = P_sim(2:options.T-1)./P_sim(1:options.T-2);
-pi2 = paths.P(2:options.T-1)./paths.P(1:options.T-2);
-pi2_mean = mean(pi2(20:end));
-dev_pi = 4*100*(pi-pi2_mean)/pi2_mean;
-plot(-1:12,dev_pi(1:14),'LineWidth',2,'Color','b')
-grid on;
-xlabel('Quarters after shock')
-ylabel('Deviation from Trend (%)')
-title('Impulse Response: Inflation (annualized)')
-set(gca,'Ylim',[0 1])
-set(gca,'Xlim',[-1 12])
+fig_data_KT.price_opt = log(paths_MC.price_opt(71,1:48).*paths.P(1:48));
+fig_data_KT.price     = log(paths_MC.price(71,1:48).*paths.P(1:48));
+fig_data_KT.price_lev = log(paths.P(1:48));
+
+%% Plot value function and "stationary distribution" 
+
+m_mean = mean(paths.mt(20:options.T));
+Y_mean = mean(paths.Y(20:options.T));
+asize  = 50;
+psize  = 100;
+
+% create transition matrix over finer a grid
+[Pa_plot,a_plot,Pssa]  = setup_MarkovZ(asize,param.sigmazeta,param.rhoa,1);
+QA_plot                = kron(Pa_plot,ones(psize,1));
+
+% states at which to plot
+p_plot = nodeunif(psize,min(glob.pgrid),max(glob.pgrid));
+
+%a_plot = nodeunif(50,min(glob.agrid),max(glob.agrid));
+s_plot = gridmake(p_plot,a_plot,Y_mean,m_mean);
+
+% set up state space
+glob.Phi_A  = splibas(glob.agrid0,0,glob.spliorder(2),s_plot(:,2));
+glob.Phi_Y  = splibas(glob.Ygrid0,0,glob.spliorder(3),s_plot(:,3));
+glob.Phi_m  = splibas(glob.mgrid0,0,glob.spliorder(4),s_plot(:,4));
+
+% compute policy and value functions
+v_plot = solve_valfuncKS(c,s_plot,param,glob,options);
+v_max  = max(v_plot.vk, v_plot.vc);
+v_max  = reshape(v_max,[psize asize]);
+
+% find "stationary distribution"
+Pp              = min(v_plot.Pp,max(p_plot)).*1/(exp(param.mu));     
+fspaceergp      = fundef({'spli',p_plot,0,1});
+QP              = funbas(fspaceergp,Pp); 
+Q               = dprod(QA_plot,QP); 
+L               = ones(size(Q,1),1);
+L               = L/sum(L);
+for itL = (1:options.itermaxL);
+    Lnew    = Q'*L;  
+    dL      = norm(Lnew-L)/norm(L);  
+    if (dL<options.tolL),break,end;
+    if mod(itL,100)==0 
+        if strcmp(options.print,'Y')
+            fprintf('dL:\t%1.3e\n',dL);
+        end
+    end
+    L       = Lnew;
+end
+L  = reshape(L,[psize asize]);
+%contourf(a_plot,p_plot,L,15)
+
+% smooth out stationary dist.
+% a_plot_fine = linspace(min(a_plot),max(a_plot),700);
+% p_plot_fine = linspace(min(p_plot),max(p_plot),1000);
+% L_smooth = interp2(a_plot,p_plot,L,a_plot_fine,p_plot_fine','spline');
+
+% compute some conditional densities (conditional on productivity)
+L_sums = sum(L,1);
+L_cond = bsxfun(@rdivide, L, L_sums);
+
+% density of just real price
+density = sum(L,2);
+%plot(p_plot,density)
+
+% save data
+fig_data_KT.p_plot = p_plot;
+fig_data_KT.a_plot = a_plot;
+fig_data_KT.L      = L;
+fig_data_KT.L_cond = L_cond;
+fig_data_KT.v_max  = v_max;
+
+
+%% Replicate Figure 1 in Golosov-Lucas (2007)
+
+m_mean = mean(paths.mt(20:options.T));
+Y_mean = mean(paths.Y(20:options.T));
+
+% states at which to plot:
+% simulation means of m and Y
+a_plot = nodeunif(100,min(glob.agrid),max(glob.agrid));
+s_plot = gridmake(1,a_plot,Y_mean,m_mean);
+
+% set up state space
+glob.Phi_A  = splibas(glob.agrid0,0,glob.spliorder(2),s_plot(:,2));
+glob.Phi_Y  = splibas(glob.Ygrid0,0,glob.spliorder(3),s_plot(:,3));
+glob.Phi_m  = splibas(glob.mgrid0,0,glob.spliorder(4),s_plot(:,4));
+
+% begin by plotting the middle line:
+% price firm would pick if it can
+% costlessly adjust: v.Pc
+param.Phi       = 0;
+v_mid           = solve_valfuncKS(c,s_plot,param,glob,options);
+
+% for each point in a, find price (lower and upper bound)
+% at which firm is indifferent between changing and keeping
+param.Phi       = 0.156;     % turn the menu cost back on
+p_low = zeros(1,length(a_plot));
+p_upp = zeros(1,length(a_plot));
+
+for a=1:length(a_plot)
+
+    % for the given level of a, set up the state space: lower bound
+    pl               = 1000;
+    p_plot_low       = nodeunif(pl,min(glob.pgrid),v_mid.Pc(a));
+    p_plot_upp       = nodeunif(pl,v_mid.Pc(a),max(glob.pgrid));
+    p_plot           = [p_plot_low; p_plot_upp(2:end)];
+    p_plot_upp       = p_plot_upp(2:end);
+    s_plot      = gridmake(p_plot,a_plot(a),Y_mean,m_mean);
+    glob.Phi_A  = splibas(glob.agrid0,0,glob.spliorder(2),s_plot(:,2));
+    glob.Phi_Y  = splibas(glob.Ygrid0,0,glob.spliorder(3),s_plot(:,3));
+    glob.Phi_m  = splibas(glob.mgrid0,0,glob.spliorder(4),s_plot(:,4));
+
+    % compute lower/upper bounds on price
+    v           = solve_valfuncKS(c,s_plot,param,glob,options);
+    dist        = abs(v.vc - v.vk);
+    [~,I_low]   = min(dist(1:pl));
+    p_low(a)    = p_plot_low(I_low);
+    [~,I_upp]   = min(dist(pl+1:end));
+    p_upp(a)    = p_plot_upp(I_upp);
+
+end
+
+% save data
+fig_data_KT.a_plot2 = a_plot;
+fig_data_KT.p_mid   = v_mid.Pc;
+fig_data_KT.p_low   = p_low;
+fig_data_KT.p_upp   = p_upp;
+
+save('fig_data_KT.mat','fig_data_KT');
+

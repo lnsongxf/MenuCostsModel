@@ -10,16 +10,30 @@ Nm = glob.n(4);
 % create grid for a:
 [Pa,agrid,Pssa]     = setup_MarkovZ(Na,param.sigmazeta,param.rhoa,1);
 
-% create grid for Y, m using VAR:
-muvar               = [cKS.b0 + cKS.b2*param.mu*(1-param.rhom); param.mu*(1-param.rhom)];
-Avar                = [cKS.b1, cKS.b2*param.rhom; 0, param.rhom];
-Svar                = [cKS.b2*param.sigmaeps; param.sigmaeps];
-[tmpgrid,Pym,Pssym] = tauchenvar([Ny; Nm],muvar,Avar,Svar);
+% % create grid for Y, m using VAR:
+% muvar               = [cKS.b0 + cKS.b2*param.mu*(1-param.rhom); param.mu*(1-param.rhom)];
+% Avar                = [cKS.b1, cKS.b2*param.rhom; 0, param.rhom];
+% Svar                = [cKS.b2*param.sigmaeps; param.sigmaeps];
+% [tmpgrid,Pym,Pssym] = tauchenvar([Ny; Nm],muvar,Avar,Svar);
+% 
+% % tidy up
+% Pym = Pym';     
+% mgrid = unique(tmpgrid(2,:))';
+% Ygrid = exp(unique(tmpgrid(1,:)))';    
+% agrid0      = agrid;
+% Ygrid0      = Ygrid;
+% mgrid0      = mgrid;
 
-% tidy up
-Pym = Pym';     
-mgrid = unique(tmpgrid(2,:))';
-Ygrid = exp(unique(tmpgrid(1,:)))';    
+% VAR matrices
+A1         = [cKS.b0 + cKS.b2*param.mu*(1-param.rhom); param.mu*(1-param.rhom)];
+A2         = [cKS.b1, cKS.b2*param.rhom; 0, param.rhom];
+Sigma      = [param.sigmaeps^2*cKS.b2^2 param.sigmaeps^2*cKS.b2;...
+    param.sigmaeps^2*cKS.b2 param.sigmaeps^2];
+
+% construct Markov chain
+[Pym,Pr_mat_key,~] = fn_var_to_markov(eye(2),A1,A2,Sigma,[Ny; Nm],1000,1);    
+mgrid = unique(Pr_mat_key(2,:))';
+Ygrid = exp(unique(Pr_mat_key(1,:)))';  
 agrid0      = agrid;
 Ygrid0      = Ygrid;
 mgrid0      = mgrid;
@@ -109,9 +123,12 @@ Nmf                 = glob.nf(4);
 [Paf,agridf,~]     = setup_MarkovZ(Naf,param.sigmazeta,param.rhoa,1);
 
 % create fine grids for Y, m using VAR
-[tmpgrid,~,~] = tauchenvar([Nyf; Nmf],muvar,Avar,Svar);
-mgridf = unique(tmpgrid(2,:))';
-Ygridf = exp(unique(tmpgrid(1,:)))';  
+% [tmpgrid,~,~] = tauchenvar([Nyf; Nmf],muvar,Avar,Svar);
+% mgridf = unique(tmpgrid(2,:))';
+% Ygridf = exp(unique(tmpgrid(1,:)))';  
+[~,Pr_mat_key,~] = fn_var_to_markov(eye(2),A1,A2,Sigma,[Nyf; Nmf],1000,2);    
+mgridf = unique(Pr_mat_key(2,:))';
+Ygridf = exp(unique(Pr_mat_key(1,:)))';  
 
 % whole state space
 sf              = gridmake(pgridf,agridf,Ygridf,mgridf);

@@ -72,12 +72,14 @@ end
 %% Solve again on a finer grid for p
 %  NOTE (VG): for the stationary distribution
 glob.Phi_nu      = glob.Phi_nuf; 
+Phi_X            = splibas(glob.xgrid0,0,glob.spliorder(1),glob.sf(:,1)*1/exp(param.mu));
+glob.Phi         = dprod(glob.Phi_nu,Phi_X);         
 v                = solve_valfunc_GL(c,sf,cbar,param,glob,options);
 
 
 %% Compute stationary distribution
 %  NOTE (VG): I think he's avoiding policies off the max of the grid
-Xp              = min(v.Xp,max(xgrid));     
+Xp              = min(v.Xp,max(xgrid)).*1/(exp(param.mu));     
 fspaceergx      = fundef({'spli',glob.xgridf,0,1});
 QX              = funbas(fspaceergx,Xp); 
 QNu             = glob.QNu;
@@ -107,7 +109,7 @@ end
 % Pa = (L'*((v.Pp).^(1-param.theta))).^(1/(1-param.theta));
 % Ca = 1/Pa;
 
-cbara = (param.alpha.^(1-param.epsilon).*(sf(:,1)'.^(1-param.epsilon)*L))...
+cbara = (param.alpha.^(1-param.epsilon).*(v.Xp'.^(1-param.epsilon)*L))...
     .^(1/(param.gamma*(param.epsilon - 1)));
 
 %% Pack-up output

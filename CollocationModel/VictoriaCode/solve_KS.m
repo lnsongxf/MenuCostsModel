@@ -23,7 +23,24 @@ function [c,v,KS_coeffs,R2,paths] = solve_KS(cKS,eq,param,glob,options)
     KS_coeffs      = zeros(options.S,numel(fieldnames(cKS)));
     rng(219);
     for s=1:options.S
-        [KS_coeffs(s,:),R2,paths] = simulate_KS(c,v,cKS,eq,param,glob,options);
+        
+        % draw money shocks
+        mt          = zeros(1,options.T+1);
+        mt(1)       = param.mu;
+        for t = 2:options.T+1;
+            mt(t) = param.mu*(1-param.rhom) + param.rhom*mt(t-1) + param.sigmaeps*randn;
+            mt(t) = max(min(mt(t),max(glob.mgrid)),min(glob.mgrid));
+        end 
+        Minit       = 0;
+        M_sim       = zeros(1,options.T+1);
+        M_sim(1)    = Minit + mt(1);
+        for t = 2:options.T+1
+            M_sim(t) = mt(t) + M_sim(t-1);
+        end
+        M_sim       = exp(M_sim);
+        
+        % simulate and compute regression coefficients
+        [KS_coeffs(s,:),R2,paths] = simulate_KS(mt,M_sim,c,v,cKS,eq,param,glob,options);
         s
     end
     
